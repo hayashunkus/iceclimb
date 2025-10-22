@@ -48,7 +48,7 @@ cap = cv2.VideoCapture(0)
 # --- ★100mの壁を生成 ---
 full_background = None
 try:
-    tile_image = pygame.image.load("image/iceclimbrock.png").convert()
+    tile_image = pygame.image.load("image/backsnow.png").convert()
     tile_height = tile_image.get_height()
     
     # 100m分の高さを持つ巨大なサーフェスを作成
@@ -59,7 +59,7 @@ try:
         full_background.blit(tile_image, (0, y))
 
 except FileNotFoundError:
-    print("エラー: image/iceclimbrock.png が見つかりません。")
+    print("エラー: image/backsnow.png が見つかりません。")
 
 # 背景スクロール用の変数
 if full_background:
