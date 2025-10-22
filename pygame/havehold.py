@@ -19,7 +19,7 @@ hands = mp_hands.Hands(
 pygame.init()
 
 # --- ゲーム設定と物理定義 ---
-PIXELS_PER_METER = 360  # 1メートルあたりのピクセル数 (720px / 2m)
+PIXELS_PER_METER = 360  # 1メートルあたりのピクセル数
 TOTAL_CLIMB_METERS = 100.0
 MAX_PULL_METERS = 1.0
 
@@ -35,14 +35,16 @@ pygame.display.set_caption(f"Bouldering Game ({int(TOTAL_CLIMB_METERS)}m Climb)"
 # 色とフォントの定義
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
-GREEN = (0, 255, 0) # ★修正点：GREENの定義を追加
+GREEN = (0, 255, 0) # 掴んだ時の色
 BLACK = (0, 0, 0)
 SKY_BLUE = (135, 206, 235)
 font = pygame.font.Font(None, 50)
 
-# プレイヤー（カーソル）の設定
-cursor_pos = [SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2]
-cursor_radius = 15
+# ★プレイヤー（カーソル）の設定 (左右別々に)
+# 検出前は画面外(-100, -100)に配置
+left_cursor_pos = [-100, -100]
+right_cursor_pos = [-100, -100]
+cursor_radius = 25
 
 # Webカメラの準備
 cap = cv2.VideoCapture(0)
@@ -55,7 +57,6 @@ try:
     full_background = pygame.Surface((SCREEN_WIDTH, TOTAL_CLIMB_PIXELS))
     for y in range(0, TOTAL_CLIMB_PIXELS, tile_height):
         full_background.blit(tile_image, (0, y))
-
 except FileNotFoundError:
     print("エラー: image/backsnow.png が見つかりません。")
 
@@ -68,21 +69,19 @@ else:
     world_y_offset = 0
 
 # --- ホールド（掴む岩）の生成 ---
-holds_list = [] # ワールド座標系でのホールドのRectを格納
+holds_list = [] 
 hold_image = None
 try:
-    hold_image = pygame.image.load("image/blockcatch.png").convert_alpha() # 透過をサポート
+    hold_image = pygame.image.load("image/blockcatch.png").convert_alpha()
     hold_rect = hold_image.get_rect()
     hold_width, hold_height = hold_rect.width, hold_rect.height
     
-    # スタート時の画面中央付近（ワールド座標の最後の方）から生成を開始
     current_y = TOTAL_CLIMB_PIXELS - (SCREEN_HEIGHT // 2)
-    side = 0 # 0=左, 1=右
+    side = 0 
     
-    while current_y > 0: # 頂上(0)に達するまで
+    while current_y > 0: 
         y_variation = random.randint(-PIXELS_PER_METER // 4, PIXELS_PER_METER // 4)
         h_y = current_y + y_variation
-        
         x_variation = random.randint(-80, 80)
         if side == 0:
             h_x = (SCREEN_WIDTH / 4) - (hold_width / 2) + x_variation
@@ -90,18 +89,19 @@ try:
             h_x = (SCREEN_WIDTH * 3 / 4) - (hold_width / 2) + x_variation
         
         holds_list.append(pygame.Rect(h_x, h_y, hold_width, hold_height))
-        
         current_y -= PIXELS_PER_METER
-        side = 1 - side # 左右を交互に
-
+        side = 1 - side 
 except FileNotFoundError:
     print("エラー: image/blockcatch.png が見つかりません。")
 
+# --- ★掴み状態の管理変数 (左右別々に) ---
+player_is_holding = False # どちらかの手で掴んでいるか（前フレームの状態）
+left_is_holding = False
+right_is_holding = False
 
-# 掴んでいる状態を管理する変数
-is_holding = False
-hold_start_y = 0      # 掴み始めた時の「手のY座標」
-world_hold_start_y = 0  # 掴み始めた時の「背景のY座標」
+left_hold_start_y = 0   # 掴み始めた時の「左手Y座標」
+right_hold_start_y = 0  # 掴み始めた時の「右手Y座標」
+world_hold_start_y = 0  # 掴み始めた時の「背景Y座標」
 
 # --- 関数定義 ---
 def is_hand_open(hand_landmarks):
@@ -115,7 +115,7 @@ running = True
 clock = pygame.time.Clock()
 
 while running and cap.isOpened():
-    # 1. イベント処理 (PygameとOpenCV)
+    # 1. イベント処理
     for event in pygame.event.get():
         if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN):
             running = False
@@ -139,51 +139,85 @@ while running and cap.isOpened():
     if key == ord('q') or cv2.getWindowProperty('MediaPipe Hands', cv2.WND_PROP_VISIBLE) < 1:
         running = False
 
-    # 4. ジェスチャーとゲームロジック
-    is_grabbing = False
-    active_hand_pos = None
+    # 4. ★ジェスチャーとゲームロジック (左右分離)
+    
+    # 状態をリセット
+    left_is_grabbing = False
+    right_is_grabbing = False
+    left_cursor_pos[:] = [-100, -100]  # 検出されなければ画面外へ
+    right_cursor_pos[:] = [-100, -100] # 検出されなければ画面外へ
+    
     if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            if not is_hand_open(hand_landmarks): is_grabbing = True
+        for hand_landmarks, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
+            
+            is_open = is_hand_open(hand_landmarks)
             mcp_landmark = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
-            active_hand_pos = (int(mcp_landmark.x * SCREEN_WIDTH), int(mcp_landmark.y * SCREEN_HEIGHT))
-            if is_grabbing: break 
-    
-    if active_hand_pos: cursor_pos[:] = active_hand_pos
-    
-    cursor_rect = pygame.Rect(cursor_pos[0] - cursor_radius, cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
+            hand_pos = (int(mcp_landmark.x * SCREEN_WIDTH), int(mcp_landmark.y * SCREEN_HEIGHT))
 
+            if handedness.classification[0].label == 'Left':
+                left_is_grabbing = not is_open
+                left_cursor_pos[:] = hand_pos
+            elif handedness.classification[0].label == 'Right':
+                right_is_grabbing = not is_open
+                right_cursor_pos[:] = hand_pos
+
+    # --- 当たり判定 ---
+    left_cursor_rect = pygame.Rect(left_cursor_pos[0] - cursor_radius, left_cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
+    right_cursor_rect = pygame.Rect(right_cursor_pos[0] - cursor_radius, right_cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
+    
     visible_holds_for_drawing = []
-    colliding_hold = None
+    left_colliding_hold = None
+    right_colliding_hold = None
+    
     if hold_image:
         min_y_world = world_y_offset
         max_y_world = world_y_offset + SCREEN_HEIGHT
-        
         for hold_rect_world in holds_list:
             if hold_rect_world.bottom > min_y_world and hold_rect_world.top < max_y_world:
                 screen_rect = hold_rect_world.move(0, -world_y_offset)
                 visible_holds_for_drawing.append(screen_rect) 
                 
-                if colliding_hold is None and cursor_rect.colliderect(screen_rect):
-                    colliding_hold = screen_rect
-    
-    can_grab = is_grabbing and (colliding_hold is not None)
+                if left_colliding_hold is None and left_cursor_rect.colliderect(screen_rect):
+                    left_colliding_hold = screen_rect
+                if right_colliding_hold is None and right_cursor_rect.colliderect(screen_rect):
+                    right_colliding_hold = screen_rect
 
-    if can_grab:
-        if not is_holding: 
-            is_holding = True
-            hold_start_y = active_hand_pos[1]
+    # --- ★掴みとスクロールのロジック ---
+    left_can_grab = left_is_grabbing and (left_colliding_hold is not None)
+    right_can_grab = right_is_grabbing and (right_colliding_hold is not None)
+    
+    current_player_is_holding = left_can_grab or right_can_grab
+
+    if current_player_is_holding:
+        if not player_is_holding: # 掴んだ瞬間 (前フレームで掴んでいなかった)
             world_hold_start_y = world_y_offset
+            left_hold_start_y = left_cursor_pos[1]
+            right_hold_start_y = right_cursor_pos[1]
         
-        pull_distance = active_hand_pos[1] - hold_start_y
+        # プル距離を計算
+        pull_distance_left = 0
+        pull_distance_right = 0
+        
+        if left_can_grab:
+            pull_distance_left = left_cursor_pos[1] - left_hold_start_y
+        if right_can_grab:
+            pull_distance_right = right_cursor_pos[1] - right_hold_start_y
+            
+        # 両手で掴んでいる場合、より大きく引いた方を採用
+        pull_distance = max(pull_distance_left, pull_distance_right)
+        
         if pull_distance < 0: pull_distance = 0
         if pull_distance > MAX_PULL_PIXELS: pull_distance = MAX_PULL_PIXELS
+        
         world_y_offset = world_hold_start_y - pull_distance
 
-    else: 
-        is_holding = False
+    else: # どちらの手も掴んでいない
         world_y_offset += GRAVITY
     
+    # 次のフレームのために、現在の掴み状態を保存
+    player_is_holding = current_player_is_holding
+    
+    # スクロール範囲の制限
     if world_y_offset > max_scroll: world_y_offset = max_scroll
     if world_y_offset < 0: world_y_offset = 0
 
@@ -197,18 +231,20 @@ while running and cap.isOpened():
         for rect in visible_holds_for_drawing:
             screen.blit(hold_image, rect)
     
+    # 高度表示UI
     height_climbed = (max_scroll - world_y_offset) / PIXELS_PER_METER
     height_text = font.render(f"Height: {height_climbed:.1f} m", True, BLACK)
     pygame.draw.rect(screen, WHITE, (5, 5, height_text.get_width() + 10, height_text.get_height()))
     screen.blit(height_text, (10, 5))
     
-    cursor_color = RED
-    if is_holding:
-        cursor_color = GREEN # 掴んでいるときは緑
-    pygame.draw.circle(screen, cursor_color, cursor_pos, cursor_radius)
+    # ★左右のカーソルを描画
+    left_cursor_color = GREEN if left_can_grab else RED
+    right_cursor_color = GREEN if right_can_grab else RED
+    
+    pygame.draw.circle(screen, left_cursor_color, left_cursor_pos, cursor_radius)
+    pygame.draw.circle(screen, right_cursor_color, right_cursor_pos, cursor_radius)
     
     pygame.display.flip()
-
     clock.tick(60)
 
 # --- 終了処理 ---
