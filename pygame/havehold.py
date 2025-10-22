@@ -21,7 +21,7 @@ pygame.init()
 # --- ゲーム設定と物理定義 ---
 PIXELS_PER_METER = 360  # 1メートルあたりのピクセル数
 TOTAL_CLIMB_METERS = 100.0
-MAX_PULL_METERS = 1.0
+MAX_PULL_METERS = 2.0
 
 TOTAL_CLIMB_PIXELS = int(TOTAL_CLIMB_METERS * PIXELS_PER_METER)
 MAX_PULL_PIXELS = int(MAX_PULL_METERS * PIXELS_PER_METER)
@@ -44,7 +44,7 @@ font = pygame.font.Font(None, 50)
 # 検出前は画面外(-100, -100)に配置
 left_cursor_pos = [-100, -100]
 right_cursor_pos = [-100, -100]
-cursor_radius = 25
+cursor_radius = 30
 
 # Webカメラの準備
 cap = cv2.VideoCapture(0)
