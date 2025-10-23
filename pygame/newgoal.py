@@ -249,7 +249,7 @@ while running:
             screen.fill(SKY_BLUE) # 代替
 
         # ★ 登頂おめでとうテキスト
-        goal_text = game_over_font.render("100m TOUCHO!!", True, WHITE)
+        goal_text = game_over_font.render("100m 登頂成功!!", True, BLACK)
         screen.blit(goal_text, (
             SCREEN_WIDTH // 2 - goal_text.get_width() // 2,
             SCREEN_HEIGHT // 4 - goal_text.get_height() // 2
