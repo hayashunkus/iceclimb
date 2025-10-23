@@ -52,7 +52,7 @@ GRAVITY = 10 # 落下速度 (10のまま)
 # Pygameウィンドウの設定
 SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption(f"Bouldering Game ({int(TOTAL_CLIMB_METERS)}m Climb)") # ★ タイトルも105mに
+pygame.display.set_caption(f"Bouldering Game ({int(TOTAL_CLIMB_METERS-5)}m Climb)") # ★ タイトルも105mに
 
 # 色とフォントの定義
 WHITE = (255, 255, 255)
@@ -249,7 +249,7 @@ while running:
             screen.fill(SKY_BLUE) # 代替
 
         # ★ 登頂おめでとうテキスト
-        goal_text = game_over_font.render("100m 登頂成功!!", True, BLACK)
+        goal_text = game_over_font.render("100m Climb Success!!", True, BLACK)
         screen.blit(goal_text, (
             SCREEN_WIDTH // 2 - goal_text.get_width() // 2,
             SCREEN_HEIGHT // 4 - goal_text.get_height() // 2
