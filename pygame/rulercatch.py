@@ -56,10 +56,23 @@ class Icicle(pygame.sprite.Sprite):
 
 # --- ゲーム設定と物理定義 ---
 PIXELS_PER_METER = 360 # 参考値 (重力計算に使用)
-GRAVITY_MS2 = 9.8  # 現実の重力加速度 m/s^2　9.8
-GRAVITY_PIXELS_S2 = GRAVITY_MS2 * PIXELS_PER_METER # ピクセル/s^2
 FPS = 60 # フレームレート
-GRAVITY_ACCEL = GRAVITY_PIXELS_S2 / (FPS * FPS) # ピクセル/フレーム^2 (約0.98)
+
+# ★ 重力オプション辞書 (名前: m/s^2)
+GRAVITY_OPTIONS = {
+    "Sun": 274.0,
+    "Earth": 9.8,
+    "Mars": 3.7,
+    "Venus": 8.87,
+    "Jupiter": 24.79,
+    "Saturn": 10.44,
+    "Uranus": 8.69,
+    "Neptune": 11.15,
+    "Pluto": 0.62,
+}
+# ★ 選択中の重力キーと計算後の加速度
+selected_gravity_key = "Earth"
+GRAVITY_ACCEL = (GRAVITY_OPTIONS[selected_gravity_key] * PIXELS_PER_METER) / (FPS * FPS)
 
 # Pygameウィンドウの設定
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -75,8 +88,10 @@ SKY_BLUE = (135, 206, 235)
 BLUE = (0, 0, 255)
 ORANGE = (255, 165, 0)
 BUTTON_COLOR = (0, 100, 200)
-BUTTON_HOVER_COLOR = (0, 150, 255) # ★ ボタン上でホバーする色 (手のカーソル用/マウス用)
+BUTTON_HOVER_COLOR = (0, 150, 255)
 BUTTON_TEXT_COLOR = WHITE
+RADIO_BUTTON_COLOR = WHITE
+RADIO_BUTTON_SELECTED_COLOR = GREEN
 
 font_ui = pygame.font.Font(None, 36)
 font_log = pygame.font.Font(None, 24)
@@ -84,7 +99,10 @@ font_title = pygame.font.Font(None, 40)
 game_over_font = pygame.font.Font(None, 100)
 result_text_font = pygame.font.Font(None, 80)
 button_font = pygame.font.Font(None, 50)
-button_font_small = pygame.font.Font(None, 30) # ★ リトライボタン用の小さいフォント
+button_font_small = pygame.font.Font(None, 30)
+# ★ ラジオボタン用フォント
+radio_font = pygame.font.Font(None, 22)
+
 
 # --- アセット読み込み ---
 
@@ -119,7 +137,6 @@ icicle = Icicle(icicle_image) if icicle_image else None
 left_cursor_pos = [-100, -100]
 right_cursor_pos = [-100, -100]
 cursor_radius = 45
-# ★ 手の開閉状態を追跡 (初期値は開いていると仮定)
 left_is_open_current = True
 right_is_open_current = True
 left_was_open = True
@@ -140,12 +157,25 @@ elapsed_time = 0
 final_time = 0
 
 # --- UI要素 ---
-# ★ スタートボタンをゲームパネル中央に配置 (スクリーン座標基準)
 start_button_rect_screen = pygame.Rect(0, 0, 200, 80)
 start_button_rect_screen.center = (GAME_PANEL_RECT.centerx, GAME_PANEL_RECT.centery)
-# ★ リトライボタン (スクリーン座標基準)
-retry_button_rect_screen = pygame.Rect(0, 0, 300, 60) # 幅を広げる
+retry_button_rect_screen = pygame.Rect(0, 0, 300, 60)
 retry_button_rect_screen.center = (GAME_PANEL_RECT.centerx, GAME_PANEL_RECT.bottom - 80)
+
+# ★ ラジオボタンのRect辞書
+radio_button_rects = {}
+radio_y_start = 100
+radio_y_offset = 25
+radio_x_pos = 15
+radio_radius = 8
+label_x_offset = 20
+
+for i, key in enumerate(GRAVITY_OPTIONS.keys()):
+    center_y = SCORE_PANEL_RECT.top + radio_y_start + i * radio_y_offset
+    # クリック判定用のRectを作成 (少し大きめに)
+    rect = pygame.Rect(radio_x_pos - radio_radius - 2, center_y - radio_radius - 2, (radio_radius + 2) * 2 + 150, (radio_radius + 2) * 2) # ラベル部分まで含む
+    radio_button_rects[key] = rect
+
 
 # --- 説明テキスト ---
 instructions = [
@@ -175,9 +205,14 @@ def format_time(ms):
     milliseconds = (ms % 1000) // 10
     return f"{minutes:02}:{seconds:02}.{milliseconds:02}"
 
+# ★ 重力加速度を計算する関数
+def calculate_gravity_accel(key):
+    gravity_ms2 = GRAVITY_OPTIONS.get(key, 9.8) # 見つからなければ地球の重力
+    return (gravity_ms2 * PIXELS_PER_METER) / (FPS * FPS)
+
 # ★ ゲームリセット関数
 def reset_game():
-    global game_state, elapsed_time, final_time, drop_delay_ms, icicle, start_time, left_is_open_current, right_is_open_current, left_was_open, right_was_open
+    global game_state, elapsed_time, final_time, drop_delay_ms, icicle, start_time, left_is_open_current, right_is_open_current, left_was_open, right_was_open, selected_gravity_key, GRAVITY_ACCEL
     game_state = 'READY'
     elapsed_time = 0
     final_time = 0
@@ -185,12 +220,14 @@ def reset_game():
     if icicle:
         icicle.reset()
     start_time = 0
-    left_is_open_current = True # リセット時は開いていると仮定
+    left_is_open_current = True
     right_is_open_current = True
     left_was_open = True
     right_was_open = True
+    # ★ 重力を地球に戻す
+    selected_gravity_key = "Earth"
+    GRAVITY_ACCEL = calculate_gravity_accel(selected_gravity_key)
     global cap
-    # ★ カメラが閉じていたら再度開く
     if not cap.isOpened():
        cap = cv2.VideoCapture(0)
        if cap.isOpened():
@@ -208,28 +245,27 @@ while running:
 
     delta_time_ms = clock.tick(FPS)
     mouse_pos = pygame.mouse.get_pos()
-    mouse_click = False # ★ マウスイベント用にリセット
+    mouse_click = False
 
     # 1. イベント処理
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RETURN: # Enterキーで終了
+            if event.key == pygame.K_RETURN:
                 running = False
-        # ★ マウスクリックイベントを検出
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1: # 左クリック
+            if event.button == 1:
                 mouse_click = True
 
     # 画面全体をクリア
     screen.fill(GRAY)
 
     # --- カメラ処理 & 手の検出 (常に実行) ---
-    left_closed_this_frame = False # フレームごとにリセット
+    left_closed_this_frame = False
     right_closed_this_frame = False
-    results = None # 手の検出結果初期化
-    hand_detected = False # 手が検出されたかフラグ
+    results = None
+    hand_detected = False
 
     if cap.isOpened():
         success, image_cam = cap.read()
@@ -241,7 +277,7 @@ while running:
 
             image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
             if results and results.multi_hand_landmarks:
-                hand_detected = True # 手が検出された
+                hand_detected = True
                 for hand_landmarks in results.multi_hand_landmarks:
                     mp_drawing.draw_landmarks(image_bgr, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
@@ -249,7 +285,6 @@ while running:
             image_pygame = pygame.image.frombuffer(image_rgb.tobytes(), image_rgb.shape[1::-1], "RGB")
             camera_surface_scaled = pygame.transform.scale(image_pygame, (CAM_PANEL_RECT.width, CAM_PANEL_RECT.height))
 
-            # --- ジェスチャー & カーソル位置更新 ---
             left_is_open_now = True
             right_is_open_now = True
             left_cursor_pos[:] = [-100, -100]
@@ -259,7 +294,6 @@ while running:
                 for hand_landmarks, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
                     is_open = is_hand_open(hand_landmarks)
                     mcp_landmark = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
-                    # ★ 座標はゲームパネル基準
                     hand_pos = (int(mcp_landmark.x * GAME_PANEL_WIDTH), int(mcp_landmark.y * GAME_HEIGHT))
 
                     if handedness.classification[0].label == 'Left':
@@ -277,15 +311,13 @@ while running:
             left_is_open_current = left_is_open_now
             right_is_open_current = right_is_open_now
 
-        else: # cap.read()失敗
+        else:
              if cap.isOpened():
                  print("Warning: Failed to read frame from camera.")
-             # 状態は維持するが、位置はリセット
              left_cursor_pos[:] = [-100, -100]
              right_cursor_pos[:] = [-100, -100]
 
-    else: # cap is not Opened
-        # 状態はデフォルト（開）、位置はリセット
+    else:
         left_is_open_current = True
         right_is_open_current = True
         left_cursor_pos[:] = [-100, -100]
@@ -294,7 +326,6 @@ while running:
 
     # --- ゲームロジック (状態に基づいて実行) ---
 
-    # ★ 座標系を統一するため、ゲームパネル基準のRectを作成
     left_cursor_rect_game = pygame.Rect(left_cursor_pos[0] - cursor_radius, left_cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
     right_cursor_rect_game = pygame.Rect(right_cursor_pos[0] - cursor_radius, right_cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
     start_button_rect_game = start_button_rect_screen.copy()
@@ -302,10 +333,25 @@ while running:
     retry_button_rect_game = retry_button_rect_screen.copy()
     retry_button_rect_game.center = (retry_button_rect_screen.centerx - GAME_PANEL_RECT.left, retry_button_rect_screen.centery - GAME_PANEL_RECT.top)
 
+    # ★ ラジオボタンのクリック処理 (どの状態でも変更可能)
+    if mouse_click:
+        for key, rect in radio_button_rects.items():
+            # マウス座標はスクリーン全体なのでそのまま使う
+            if rect.collidepoint(mouse_pos):
+                if selected_gravity_key != key:
+                    selected_gravity_key = key
+                    GRAVITY_ACCEL = calculate_gravity_accel(key)
+                    print(f"Gravity changed to: {key} ({GRAVITY_OPTIONS[key]:.2f} m/s^2)")
+                    # もしゲーム中なら影響を与える
+                    if game_state == 'DROPPING' and icicle:
+                        # 速度に影響を与えるか、あるいはリセットするか
+                        # ここではリセットせずにそのまま継続
+                        pass
+                break # 他のボタンはチェックしない
+
 
     if game_state == 'READY':
         start_activated = False
-        # ★ 修正: ゲームパネル基準の座標で衝突判定
         if left_closed_this_frame and start_button_rect_game.colliderect(left_cursor_rect_game):
             start_activated = True
         elif right_closed_this_frame and start_button_rect_game.colliderect(right_cursor_rect_game):
@@ -326,18 +372,18 @@ while running:
     elif game_state == 'DROPPING':
         elapsed_time = pygame.time.get_ticks() - start_time
         if icicle:
-            icicle.update(GRAVITY_ACCEL)
+            icicle.update(GRAVITY_ACCEL) # ★ 現在選択中の重力を使う
             if icicle.rect.top > GAME_HEIGHT:
                 game_state = 'MISSED'
                 final_time = elapsed_time
                 if cap.isOpened():
-                    cap.release()
-                    print("Camera released on game over.")
+                    # ★ カメラは閉じない
+                    # cap.release()
+                    print("Game over.")
 
             icicle_rect_game = icicle.rect
 
             caught = False
-             # ★ 修正: ゲームパネル基準の座標で衝突判定
             if left_closed_this_frame and left_cursor_rect_game.colliderect(icicle_rect_game):
                 caught = True
             elif right_closed_this_frame and right_cursor_rect_game.colliderect(icicle_rect_game):
@@ -347,8 +393,9 @@ while running:
                 game_state = 'CAUGHT'
                 final_time = elapsed_time
                 if cap.isOpened():
-                    cap.release()
-                    print("Camera released on success.")
+                    # ★ カメラは閉じない
+                    # cap.release()
+                    print("Icicle caught!")
 
     elif game_state == 'CAUGHT' or game_state == 'MISSED':
         # ★ マウスクリックでリトライ
@@ -356,7 +403,6 @@ while running:
         mouse_y_in_game = mouse_pos[1] - GAME_PANEL_RECT.top
 
         if GAME_PANEL_RECT.collidepoint(mouse_pos):
-             # ★ 修正: ゲームパネル基準の座標で衝突判定
              if retry_button_rect_game.collidepoint(mouse_x_in_game, mouse_y_in_game) and mouse_click:
                   reset_game()
 
@@ -368,7 +414,6 @@ while running:
     game_surface.fill(SKY_BLUE)
 
     if game_state == 'CAUGHT':
-        # --- 成功画面描画 ---
         result_text = result_text_font.render("Success!!", True, ORANGE)
         game_surface.blit(result_text, result_text.get_rect(center=(GAME_PANEL_WIDTH // 2, GAME_HEIGHT // 4)))
         time_text = font_ui.render(f"Catch Time: {format_time(final_time)}", True, BLACK)
@@ -383,55 +428,41 @@ while running:
             img_rect = current_dancer_image.get_rect(center=(GAME_PANEL_WIDTH // 2, GAME_HEIGHT // 2 + 100))
             game_surface.blit(current_dancer_image, img_rect)
 
-        # リトライボタン描画 (マウスホバー)
         mouse_x_in_game = mouse_pos[0] - GAME_PANEL_RECT.left
         mouse_y_in_game = mouse_pos[1] - GAME_PANEL_RECT.top
-        # ★ 修正: ゲームパネル基準の座標で衝突判定
         is_hovering_retry = retry_button_rect_game.collidepoint(mouse_x_in_game, mouse_y_in_game)
 
         btn_color = BUTTON_HOVER_COLOR if is_hovering_retry else BUTTON_COLOR
-        # ★ 修正: ゲームパネル基準の座標で描画
         pygame.draw.rect(game_surface, btn_color, retry_button_rect_game, border_radius=10)
         btn_text = button_font_small.render("Retry Challenge", True, BUTTON_TEXT_COLOR)
-        # ★ 修正: ゲームパネル基準の座標で描画
         game_surface.blit(btn_text, btn_text.get_rect(center=retry_button_rect_game.center))
 
     elif game_state == 'MISSED':
-        # --- ゲームオーバー画面描画 ---
         go_text = game_over_font.render("GAME OVER", True, RED)
         game_surface.blit(go_text, go_text.get_rect(center=(GAME_PANEL_WIDTH // 2, GAME_HEIGHT // 2 - 50)))
         time_text = font_ui.render(f"Final Time: {format_time(final_time)}", True, WHITE) # Game Over時は白文字
         game_surface.blit(time_text, time_text.get_rect(center=(GAME_PANEL_WIDTH // 2, GAME_HEIGHT // 2 + 50)))
 
-        # リトライボタン描画 (マウスホバー)
         mouse_x_in_game = mouse_pos[0] - GAME_PANEL_RECT.left
         mouse_y_in_game = mouse_pos[1] - GAME_PANEL_RECT.top
-        # ★ 修正: ゲームパネル基準の座標で衝突判定
         is_hovering_retry = retry_button_rect_game.collidepoint(mouse_x_in_game, mouse_y_in_game)
 
         btn_color = BUTTON_HOVER_COLOR if is_hovering_retry else BUTTON_COLOR
-        # ★ 修正: ゲームパネル基準の座標で描画
         pygame.draw.rect(game_surface, btn_color, retry_button_rect_game, border_radius=10)
         btn_text = button_font_small.render("Retry Challenge", True, BUTTON_TEXT_COLOR)
-        # ★ 修正: ゲームパネル基準の座標で描画
         game_surface.blit(btn_text, btn_text.get_rect(center=retry_button_rect_game.center))
 
     else: # READY, WAITING, DROPPING
-        # --- ゲーム実行中描画 ---
         if icicle and (game_state == 'WAITING' or game_state == 'DROPPING'):
              icicle.draw(game_surface)
 
         if game_state == 'READY':
-            # ★ スタートボタンのホバー判定も手のカーソル (ゲームパネル基準)
             is_hovering_start = start_button_rect_game.colliderect(left_cursor_rect_game) or start_button_rect_game.colliderect(right_cursor_rect_game)
             btn_color = BUTTON_HOVER_COLOR if is_hovering_start else BUTTON_COLOR
-            # ★ 修正: ゲームパネル基準の座標で描画
             pygame.draw.rect(game_surface, btn_color, start_button_rect_game, border_radius=10)
             btn_text = button_font.render("START", True, BUTTON_TEXT_COLOR)
-            # ★ 修正: ゲームパネル基準の座標で描画
             game_surface.blit(btn_text, btn_text.get_rect(center=start_button_rect_game.center))
 
-        # カーソル描画 (常に表示, ゲームパネル基準)
         left_cursor_color = GREEN if not left_is_open_current else RED # 閉じていたら緑
         right_cursor_color = GREEN if not right_is_open_current else RED # 閉じていたら緑
         ALPHA_VALUE = 128
@@ -439,25 +470,43 @@ while running:
         if left_cursor_pos[0] != -100:
             circle_surface_left = pygame.Surface((cursor_radius * 2, cursor_radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(circle_surface_left, left_cursor_color + (ALPHA_VALUE,), (cursor_radius, cursor_radius), cursor_radius)
-            game_surface.blit(circle_surface_left, left_cursor_rect_game.topleft) # ★ topleftで指定
+            game_surface.blit(circle_surface_left, (left_cursor_pos[0] - cursor_radius, left_cursor_pos[1] - cursor_radius)) # ゲーム座標基準
 
         if right_cursor_pos[0] != -100:
             circle_surface_right = pygame.Surface((cursor_radius * 2, cursor_radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(circle_surface_right, right_cursor_color + (ALPHA_VALUE,), (cursor_radius, cursor_radius), cursor_radius)
-            game_surface.blit(circle_surface_right, right_cursor_rect_game.topleft) # ★ topleftで指定
+            game_surface.blit(circle_surface_right, (right_cursor_pos[0] - cursor_radius, right_cursor_pos[1] - cursor_radius)) # ゲーム座標基準
 
 
-    # --- UIパネルの描画 (常に実行) ---
+    # --- UIパネルの描画 ---
 
     # --- スコアパネル (左上) ---
     score_surface = screen.subsurface(SCORE_PANEL_RECT)
     score_surface.fill(BLACK)
-    title_text = font_title.render("TIMER", True, WHITE)
+    title_text = font_title.render("TIMER / GRAVITY", True, WHITE) # タイトル変更
     score_surface.blit(title_text, (10, 10))
 
     display_time = elapsed_time if final_time == 0 else final_time
     time_text = font_ui.render(f"{format_time(display_time)}", True, WHITE)
     score_surface.blit(time_text, (15, 60))
+
+    # ★ ラジオボタン描画
+    radio_y = radio_y_start
+    for key in GRAVITY_OPTIONS.keys():
+        center_y = SCORE_PANEL_RECT.top + radio_y
+        center_x = SCORE_PANEL_RECT.left + radio_x_pos
+
+        # ボタンの円
+        pygame.draw.circle(score_surface, RADIO_BUTTON_COLOR, (center_x, center_y), radio_radius, 1) # 枠線
+        if key == selected_gravity_key:
+            pygame.draw.circle(score_surface, RADIO_BUTTON_SELECTED_COLOR, (center_x, center_y), radio_radius - 3) # 内側の塗りつぶし
+
+        # ラベル
+        label_text = radio_font.render(f"{key} ({GRAVITY_OPTIONS[key]:.2f} m/s²)", True, WHITE)
+        score_surface.blit(label_text, (center_x + label_x_offset, center_y - label_text.get_height() // 2))
+
+        radio_y += radio_y_offset
+
 
     # --- 説明パネル (左中) ---
     log_surface = screen.subsurface(LOG_PANEL_RECT)
@@ -479,10 +528,11 @@ while running:
     if cap.isOpened() and camera_surface_scaled:
         cam_surface.blit(camera_surface_scaled, (0, 30))
     elif not cap.isOpened(): # カメラが開いていない場合
-         # ★ ゲーム終了状態でもエラー表示しない
-         if game_state not in ['CAUGHT', 'MISSED']:
-             cam_error_text = font_log.render("Camera not found.", True, RED)
-             cam_surface.blit(cam_error_text, (10, 50))
+         # ★ どの状態でもエラー表示しない（リトライ時に再オープンするため）
+         # if game_state not in ['CAUGHT', 'MISSED']:
+         #     cam_error_text = font_log.render("Camera not found.", True, RED)
+         #     cam_surface.blit(cam_error_text, (10, 50))
+         pass # エラーメッセージは不要
 
     # 画面更新
     pygame.display.flip()
@@ -493,4 +543,3 @@ if cap.isOpened():
 cv2.destroyAllWindows()
 pygame.quit()
 sys.exit()
-
