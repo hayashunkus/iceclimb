@@ -103,7 +103,6 @@ class Enemy(pygame.sprite.Sprite):
         surface.blit(self.image, self.rect)
 
 # --- ゲーム設定と物理定義 (今回は不使用) ---
-# PIXELS_PER_METER = 360
 FPS = 60 # フレームレート
 
 # Pygameウィンドウの設定
@@ -119,7 +118,7 @@ GRAY = (50, 50, 50)
 SKY_BLUE = (135, 206, 235)
 BLUE = (0, 0, 255)
 ORANGE = (255, 165, 0)
-YELLOW = (255, 255, 0) # ★追加
+YELLOW = (255, 255, 0)
 BUTTON_COLOR = (0, 100, 200)
 BUTTON_HOVER_COLOR = (0, 150, 255)
 BUTTON_TEXT_COLOR = WHITE
@@ -130,8 +129,8 @@ DARK_RED = (139, 0, 0)
 font_ui = pygame.font.Font(None, 36)
 font_log = pygame.font.Font(None, 24)
 font_title = pygame.font.Font(None, 40)
-game_over_font = pygame.font.Font(None, 80) # 小さく調整
-result_text_font = pygame.font.Font(None, 60) # 小さく調整
+game_over_font = pygame.font.Font(None, 80)
+result_text_font = pygame.font.Font(None, 60)
 button_font = pygame.font.Font(None, 50)
 button_font_small = pygame.font.Font(None, 30)
 
@@ -139,15 +138,15 @@ button_font_small = pygame.font.Font(None, 30)
 enemy_images = {}
 try:
     img_purple = pygame.image.load("image/enemy.png").convert_alpha()
-    img_purple = pygame.transform.scale(img_purple, (70, 70)) # サイズ調整
+    img_purple = pygame.transform.scale(img_purple, (70, 70))
     enemy_images["purple"] = img_purple
 
     img_red = pygame.image.load("image/enemy_red.png").convert_alpha()
-    img_red = pygame.transform.scale(img_red, (70, 70)) # サイズ調整
+    img_red = pygame.transform.scale(img_red, (70, 70))
     enemy_images["red"] = img_red
 
     img_orange = pygame.image.load("image/decoenemy.png").convert_alpha()
-    img_orange = pygame.transform.scale(img_orange, (70, 70)) # サイズ調整
+    img_orange = pygame.transform.scale(img_orange, (70, 70))
     enemy_images["orange"] = img_orange
 except FileNotFoundError as e:
     print(f"エラー: 敵画像が見つかりません。 {e}")
@@ -163,7 +162,7 @@ try:
     for i in range(1, 6):
         img_path = f"image/c-dancer-{i}.png"
         img = pygame.image.load(img_path).convert_alpha()
-        img = pygame.transform.scale(img, (200, 200)) # サイズ調整
+        img = pygame.transform.scale(img, (200, 200))
         dancer_images.append(img)
 except FileNotFoundError as e:
     print(f"エラー: ダンサー画像が見つかりません。 {e}")
@@ -173,21 +172,19 @@ except FileNotFoundError as e:
 enemies = pygame.sprite.Group() # 敵グループ
 
 # プレイヤー（カーソル）の設定
-left_cursor_pos = [-100, -100]
+left_cursor_pos = [-100, -100] # MCP (手のひら) の位置
 right_cursor_pos = [-100, -100]
-cursor_radius = 20 # カーソル（手の当たり判定）の半径
-dekopin_range_radius = 70 # デコピンのヒット範囲の半径 (100 -> 70)
-# left_is_open_current = True (不要になった)
-# right_is_open_current = True (不要になった)
-# left_was_open = True (不要になった)
-# right_was_open = True (不要になった)
+left_flick_pos = [-100, -100] # TIP (中指先端) の位置
+right_flick_pos = [-100, -100]
+dekopin_range_radius_default = 70 # ★修正: デフォルトの半径 (デバッグ用)
+left_dekopin_radius = dekopin_range_radius_default # ★追加: 動的半径
+right_dekopin_radius = dekopin_range_radius_default # ★追加: 動的半径
 
-# ★ デコピン検出用
-left_index_pip_y_history = []
-right_index_pip_y_history = []
-DEKOPIN_THRESHOLD = 0.03 # 薬指との相対位置の変化量でデコピン判定
-DEKOPIN_HISTORY_LEN = 5 # 履歴の長さ
-TAME_DISTANCE_THRESHOLD = 0.05 # ★追加: 溜め判定のしきい値 (親指と中指の距離)
+# ★ デコピン検出用 (サンプルコードベース)
+FLICK_THRESHOLD = 40 # フリック検知の速度しきい値
+left_middle_tip_history = [[0, 0], [0, 0]] # ★修正: [古い[x,y], 新しい[x,y]]
+right_middle_tip_history = [[0, 0], [0, 0]] # ★修正: [古い[x,y], 新しい[x,y]]
+TAME_DISTANCE_THRESHOLD = 0.05 # 溜め判定のしきい値 (親指と中指の距離)
 
 # Webカメラの準備
 cap = cv2.VideoCapture(0)
@@ -206,8 +203,8 @@ enemy_spawn_interval = 1000 / 4 # 毎秒4体なので、1体あたり250ms
 
 # --- スコアと敵の生成カウンター ---
 score = 0
-purple_enemies_spawned = 0
-red_enemies_spawned = 0
+purple_enemies_spawned = 0 # 赤が出てから何体紫が出たか
+red_enemies_spawned = 0 # オレンジが出てから何体赤が出たか
 enemy_count_on_screen = 0
 MAX_ENEMIES_ON_SCREEN = 50 # 画面上の最大敵数
 
@@ -222,20 +219,26 @@ instructions = [
     "--- Dekopin Challenge ---",
     "1. Put your hand over",
     "   the START button.",
-    "2. Flick your finger ", # ★修正
-    "   (thumb + middle) to start.", # ★修正
+    "2. Flick your finger ",
+    "   (thumb + middle) to start.",
     "3. Dekopin (flick your",
     "   middle finger) enemies!",
-    "4. Yellow: Charge", # ★修正
-    "   Green: Attack!", # ★修正
+    "4. Yellow: Charge", 
+    "   Green: HIT!", 
+    "   (Purple:1 Red:3 Orange:5)", 
     "5. Don't let too many",
     "   enemies pile up! (Max 50)",
 ]
 
 # --- 関数定義 ---
 
-# def is_hand_open(hand_landmarks): (不要になったためコメントアウトまたは削除)
-    # ...
+# ★追加: 手が開いているか判定 (サンプルコードより)
+def is_hand_open(hand_landmarks):
+    tip_ids = [mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.PINKY_TIP]
+    pip_ids = [mp_hands.HandLandmark.INDEX_FINGER_PIP, mp_hands.HandLandmark.MIDDLE_FINGER_PIP, mp_hands.HandLandmark.RING_FINGER_PIP, mp_hands.HandLandmark.PINKY_PIP]
+    open_fingers = sum(1 for tip_id, pip_id in zip(tip_ids, pip_ids) if hand_landmarks.landmark[tip_id].y < hand_landmarks.landmark[pip_id].y)
+    # 3本以上開いていれば「開いている」
+    return open_fingers >= 3
 
 def format_time(ms):
     total_seconds = ms // 1000
@@ -244,7 +247,7 @@ def format_time(ms):
     milliseconds = (ms % 1000) // 10
     return f"{minutes:02}:{seconds:02}.{milliseconds:02}"
 
-# ★追加: 溜め（チャージ）状態の判定
+# ★修正: 溜め（チャージ）状態の判定 (変更なし)
 def is_hand_tame(hand_landmarks):
     """親指の先端と中指の先端が近いか（溜め状態か）を判定"""
     if not hand_landmarks:
@@ -258,28 +261,15 @@ def is_hand_tame(hand_landmarks):
     
     return distance < TAME_DISTANCE_THRESHOLD
 
-# ★ デコピン判定関数 (フリックの「リリース」動作を検知)
-def is_dekopin_motion(hand_landmarks, hand_history):
-    if not hand_landmarks:
-        return False
-    
-    middle_finger_pip_y = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_PIP].y
-
-    hand_history.append(middle_finger_pip_y)
-    if len(hand_history) > DEKOPIN_HISTORY_LEN:
-        hand_history.pop(0)
-
-    if len(hand_history) == DEKOPIN_HISTORY_LEN:
-        # 履歴の最初(古い)より最後(今)が小さい(画面上方) = 急激に指が伸びた(リリース)
-        if hand_history[0] > hand_history[-1] + DEKOPIN_THRESHOLD: 
-             return True # デコピンとして判定
-    return False
+# ★ is_dekopin_motion は不要になった (ロジックをメインループ内に移行)
 
 # ★ ゲームリセット関数
 def reset_game():
     global game_state, elapsed_time, score, purple_enemies_spawned, red_enemies_spawned, \
         enemy_count_on_screen, start_time, enemy_spawn_timer, \
-        left_hand_state, right_hand_state, left_marker_color, right_marker_color # ★修正
+        left_hand_state, right_hand_state, left_marker_color, right_marker_color, \
+        left_middle_tip_history, right_middle_tip_history, \
+        left_dekopin_radius, right_dekopin_radius # ★追加
 
     game_state = 'READY'
     elapsed_time = 0
@@ -291,11 +281,15 @@ def reset_game():
     start_time = 0
     enemy_spawn_timer = 0
     
-    # ★修正: 手の状態をリセット
+    # 手の状態をリセット
     left_hand_state = 'OPEN'
     right_hand_state = 'OPEN'
     left_marker_color = None
     right_marker_color = None
+    left_middle_tip_history = [[0, 0], [0, 0]] # ★修正
+    right_middle_tip_history = [[0, 0], [0, 0]] # ★修正
+    left_dekopin_radius = dekopin_range_radius_default # ★追加
+    right_dekopin_radius = dekopin_range_radius_default # ★追加
 
     global cap
     if not cap.isOpened():
@@ -338,16 +332,24 @@ while running:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
                 running = False
-            # (デバッグ用のK_SPACEはそのまま)
+            # (デバッグ用のK_SPACE)
             if event.key == pygame.K_SPACE and GAME_PANEL_RECT.collidepoint(mouse_pos):
-                dummy_cursor_rect = pygame.Rect(mouse_pos[0] - GAME_PANEL_RECT.left - cursor_radius, mouse_pos[1] - GAME_PANEL_RECT.top - cursor_radius, cursor_radius * 2, cursor_radius * 2)
-                for enemy in enemies:
-                    if enemy.rect.colliderect(dummy_cursor_rect):
+                # ★デバッグ用のデコピン位置をマウスカーソル基準にする
+                mouse_x_in_game = mouse_pos[0] - GAME_PANEL_RECT.left
+                mouse_y_in_game = mouse_pos[1] - GAME_PANEL_RECT.top
+                # ★デバッグではデフォルト半径を使用
+                dekopin_hit_circle = pygame.Rect(mouse_x_in_game - dekopin_range_radius_default, mouse_y_in_game - dekopin_range_radius_default, dekopin_range_radius_default * 2, dekopin_range_radius_default * 2)
+                
+                hit_found_debug = False
+                for enemy in list(enemies):
+                    if enemy.rect.colliderect(dekopin_hit_circle):
+                        hit_found_debug = True
                         if enemy.take_damage(1):
                             enemies.remove(enemy)
                             enemy_count_on_screen -= 1
                             score += 1
-                        # break (複数ヒット許容のためコメントアウト)
+                # (デバッグではマーカー色を変えない)
+
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 mouse_click = True
@@ -361,7 +363,7 @@ while running:
     results = None
     hand_detected = False
 
-    # ★修正: マーカー色を毎フレームリセット
+    # ★ マーカー色をリセット (黄色は毎フレーム判定、緑はヒット時のみ設定)
     left_marker_color = None
     right_marker_color = None
 
@@ -383,89 +385,124 @@ while running:
             image_pygame = pygame.image.frombuffer(image_rgb.tobytes(), image_rgb.shape[1::-1], "RGB")
             camera_surface_scaled = pygame.transform.scale(image_pygame, (CAM_PANEL_RECT.width, CAM_PANEL_RECT.height))
 
-            # left_is_open_now = True (不要)
-            # right_is_open_now = True (不要)
             left_cursor_pos[:] = [-100, -100]
             right_cursor_pos[:] = [-100, -100]
+            left_flick_pos[:] = [-100, -100]
+            right_flick_pos[:] = [-100, -100]
 
             if results and results.multi_hand_landmarks:
                 for hand_landmarks, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
-                    # is_open = is_hand_open(hand_landmarks) (不要)
+                    
+                    # ★ 必要なランドマークを取得
                     mcp_landmark = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
+                    tip_landmark = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+                    pip_landmark = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_PIP] # ★追加: 第2関節
+                    
                     hand_pos = (int(mcp_landmark.x * GAME_PANEL_WIDTH), int(mcp_landmark.y * GAME_HEIGHT))
-
-                    # ★追加: 溜め(Tame)とフリック(Flick)のモーションを判定
+                    flick_pos = (int(tip_landmark.x * GAME_PANEL_WIDTH), int(tip_landmark.y * GAME_HEIGHT))
+                    pip_pos = (int(pip_landmark.x * GAME_PANEL_WIDTH), int(pip_landmark.y * GAME_HEIGHT)) # ★追加
+                    
+                    # ★ 状態判定
+                    is_open = is_hand_open(hand_landmarks)
                     is_tame = is_hand_tame(hand_landmarks)
+
+                    # ★追加: 動的半径の計算
+                    distance_px = math.sqrt((flick_pos[0] - pip_pos[0])**2 + (flick_pos[1] - pip_pos[1])**2)
+                    dynamic_radius = distance_px * 1.2
+                    # 半径に制限をかける (小さすぎ/大きすぎ防止)
+                    dynamic_radius = max(30, min(150, dynamic_radius)) 
                     
                     if handedness.classification[0].label == 'Left': # カメラ映像が反転しているので、ラベルも反転
-                        right_cursor_pos[:] = hand_pos # 右手として扱う
-                        is_flick = is_dekopin_motion(hand_landmarks, right_index_pip_y_history)
+                        right_cursor_pos[:] = hand_pos # 右手として扱う (MCP)
+                        right_flick_pos[:] = flick_pos # (TIP)
+                        right_dekopin_radius = dynamic_radius # ★追加
+
+                        # ★修正: 8方向フリック速度計算
+                        right_middle_tip_history[0] = right_middle_tip_history[1]
+                        right_middle_tip_history[1] = flick_pos
+                        vel_x = right_middle_tip_history[1][0] - right_middle_tip_history[0][0]
+                        vel_y = right_middle_tip_history[1][1] - right_middle_tip_history[0][1]
+                        flick_velocity_magnitude = math.sqrt(vel_x**2 + vel_y**2)
+                        
+                        is_flick = is_open and (flick_velocity_magnitude > FLICK_THRESHOLD)
 
                         if is_tame:
                             right_hand_state = 'TAME'
                             right_marker_color = YELLOW_MARKER
                         elif right_hand_state == 'TAME' and is_flick:
                             right_hand_state = 'OPEN' # 状態をリセット
-                            right_marker_color = GREEN_MARKER
+                            # (マーカーはヒット判定後に緑にする)
                             if pygame.time.get_ticks() - last_dekopin_right > DEKOPIN_COOLDOWN:
                                 dekopin_right_this_frame = True
                                 last_dekopin_right = pygame.time.get_ticks()
-                        else:
-                            right_hand_state = 'OPEN'
-                            # right_marker_color = None (デフォルト)
+                        elif not is_tame:
+                             right_hand_state = 'OPEN'
 
                     elif handedness.classification[0].label == 'Right': # カメラ映像が反転しているので、ラベルも反転
-                        left_cursor_pos[:] = hand_pos # 左手として扱う
-                        is_flick = is_dekopin_motion(hand_landmarks, left_index_pip_y_history)
+                        left_cursor_pos[:] = hand_pos # 左手として扱う (MCP)
+                        left_flick_pos[:] = flick_pos # (TIP)
+                        left_dekopin_radius = dynamic_radius # ★追加
+
+                        # ★修正: 8方向フリック速度計算
+                        left_middle_tip_history[0] = left_middle_tip_history[1]
+                        left_middle_tip_history[1] = flick_pos
+                        vel_x = left_middle_tip_history[1][0] - left_middle_tip_history[0][0]
+                        vel_y = left_middle_tip_history[1][1] - left_middle_tip_history[0][1]
+                        flick_velocity_magnitude = math.sqrt(vel_x**2 + vel_y**2)
+
+                        is_flick = is_open and (flick_velocity_magnitude > FLICK_THRESHOLD)
 
                         if is_tame:
                             left_hand_state = 'TAME'
                             left_marker_color = YELLOW_MARKER
                         elif left_hand_state == 'TAME' and is_flick:
                             left_hand_state = 'OPEN' # 状態をリセット
-                            left_marker_color = GREEN_MARKER
+                            # (マーカーはヒット判定後に緑にする)
                             if pygame.time.get_ticks() - last_dekopin_left > DEKOPIN_COOLDOWN:
                                 dekopin_left_this_frame = True
                                 last_dekopin_left = pygame.time.get_ticks()
-                        else:
+                        elif not is_tame:
                             left_hand_state = 'OPEN'
-                            # left_marker_color = None (デフォルト)
             
-            # (was_open, is_open_currentのロジックは不要になったため削除)
-
         else:
              if cap.isOpened():
                  print("Warning: Failed to read frame from camera.")
              left_cursor_pos[:] = [-100, -100]
              right_cursor_pos[:] = [-100, -100]
+             left_flick_pos[:] = [-100, -100]
+             right_flick_pos[:] = [-100, -100]
 
     else:
-        # left_is_open_current = True (不要)
-        # right_is_open_current = True (不要)
         left_cursor_pos[:] = [-100, -100]
         right_cursor_pos[:] = [-100, -100]
+        left_flick_pos[:] = [-100, -100]
+        right_flick_pos[:] = [-100, -100]
 
 
     # --- ゲームロジック (状態に基づいて実行) ---
 
-    left_cursor_rect_game = pygame.Rect(left_cursor_pos[0] - cursor_radius, left_cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
-    right_cursor_rect_game = pygame.Rect(right_cursor_pos[0] - cursor_radius, right_cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
+    # (cursor_rect_gameは不要になった)
     start_button_rect_game = start_button_rect_screen.copy()
     start_button_rect_game.center = (start_button_rect_screen.centerx - GAME_PANEL_RECT.left, start_button_rect_screen.centery - GAME_PANEL_RECT.top)
     retry_button_rect_game = retry_button_rect_screen.copy()
-    retry_button_rect_game.center = (retry_button_rect_screen.centerx - GAME_PANEL_RECT.left, GAME_HEIGHT - 80) # 下端に固定
+    retry_button_rect_game.center = (retry_button_rect_screen.centerx - GAME_PANEL_RECT.left, GAME_HEIGHT - 80)
 
     if game_state == 'READY':
         start_activated = False
-        # ★修正: スタートボタン上で「デコピン攻撃(緑マーカー)」をしたときにスタート
-        if dekopin_left_this_frame: # (dekopin_left_this_frameは緑マーカーの時だけTrueになる)
-            dekopin_hit_circle_left = pygame.Rect(left_cursor_pos[0] - dekopin_range_radius, left_cursor_pos[1] - dekopin_range_radius, dekopin_range_radius * 2, dekopin_range_radius * 2)
+        
+        # ★修正: スタートボタン上で「デコピン攻撃(フリック)」をしたときにスタート
+        if dekopin_left_this_frame: 
+            # ★ 当たり判定の中心を flick_pos (中指先端)＆動的半径に変更
+            dekopin_hit_circle_left = pygame.Rect(left_flick_pos[0] - left_dekopin_radius, left_flick_pos[1] - left_dekopin_radius, left_dekopin_radius * 2, left_dekopin_radius * 2)
             if start_button_rect_game.colliderect(dekopin_hit_circle_left):
                 start_activated = True
+                left_marker_color = GREEN_MARKER # ★ヒットしたので緑
         elif dekopin_right_this_frame:
-            dekopin_hit_circle_right = pygame.Rect(right_cursor_pos[0] - dekopin_range_radius, right_cursor_pos[1] - dekopin_range_radius, dekopin_range_radius * 2, dekopin_range_radius * 2)
+            # ★ 当たり判定の中心を flick_pos (中指先端)＆動的半径に変更
+            dekopin_hit_circle_right = pygame.Rect(right_flick_pos[0] - right_dekopin_radius, right_flick_pos[1] - right_dekopin_radius, right_dekopin_radius * 2, right_dekopin_radius * 2)
             if start_button_rect_game.colliderect(dekopin_hit_circle_right):
                 start_activated = True
+                right_marker_color = GREEN_MARKER # ★ヒットしたので緑
         
         # マウスでクリックしてもスタートできるように
         mouse_x_in_game = mouse_pos[0] - GAME_PANEL_RECT.left
@@ -492,19 +529,24 @@ while running:
             game_state = 'GAMEOVER_TIMEUP'
             print("Game Over: Time's Up!")
 
-        # 敵の生成 (ロジックは変更なし)
+        # 敵の生成
         enemy_spawn_timer += delta_time_ms
         while enemy_spawn_timer >= enemy_spawn_interval:
             enemy_spawn_timer -= enemy_spawn_interval
 
             new_enemy = None
-            if red_enemies_spawned % 2 == 0 and red_enemies_spawned > 0 and enemy_images.get("orange") and (purple_enemies_spawned + red_enemies_spawned) > 0:
-                new_enemy = Enemy(enemy_images["orange"], 2, "orange")
-                red_enemies_spawned = 0 
-            elif purple_enemies_spawned % 10 == 0 and purple_enemies_spawned > 0 and enemy_images.get("red"):
+            # ★修正: オレンジのHPを 5 に
+            if red_enemies_spawned >= 2 and enemy_images.get("orange"):
+                # 赤が2体出たら、次はオレンジ
+                new_enemy = Enemy(enemy_images["orange"], 5, "orange") 
+                red_enemies_spawned = 0 # リセット
+            elif purple_enemies_spawned >= 10 and enemy_images.get("red"):
+                # 紫が10体出たら、次は赤
                 new_enemy = Enemy(enemy_images["red"], 3, "red")
-                purple_enemies_spawned = 0
+                purple_enemies_spawned = 0 # リセット
+                red_enemies_spawned += 1
             else:
+                # 通常は紫
                 new_enemy = Enemy(enemy_images["purple"], 1, "purple")
                 purple_enemies_spawned += 1
             
@@ -521,28 +563,43 @@ while running:
         enemies.update()
 
         # デコピン処理
-        hit_dekopin = False
-        hit_pos_x = -1 
-        hit_pos_y = -1
-
-        if dekopin_left_this_frame and left_cursor_pos[0] != -100: # ★修正 (攻撃判定はdekpoin_this_frameのみ)
-            hit_dekopin = True
-            hit_pos_x = left_cursor_pos[0]
-            hit_pos_y = left_cursor_pos[1]
-        elif dekopin_right_this_frame and right_cursor_pos[0] != -100: # ★修正
-            hit_dekopin = True
-            hit_pos_x = right_cursor_pos[0]
-            hit_pos_y = right_cursor_pos[1]
+        hit_dekopin_left = False
+        hit_dekopin_right = False
         
-        if hit_dekopin:
-            dekopin_hit_circle = pygame.Rect(hit_pos_x - dekopin_range_radius, hit_pos_y - dekopin_range_radius, dekopin_range_radius * 2, dekopin_range_radius * 2)
+        if dekopin_left_this_frame and left_flick_pos[0] != -100:
+            hit_dekopin_left = True
+        if dekopin_right_this_frame and right_flick_pos[0] != -100:
+            hit_dekopin_right = True
+        
+        hit_found_this_frame_left = False # ★修正: 左右別々にヒット判定
+        hit_found_this_frame_right = False
+
+        if hit_dekopin_left:
+            # ★ 当たり判定の中心を flick_pos (中指先端)＆動的半径に変更
+            dekopin_hit_circle = pygame.Rect(left_flick_pos[0] - left_dekopin_radius, left_flick_pos[1] - left_dekopin_radius, left_dekopin_radius * 2, left_dekopin_radius * 2)
             for enemy in list(enemies): 
                 if enemy.rect.colliderect(dekopin_hit_circle):
+                    hit_found_this_frame_left = True
                     if enemy.take_damage(1): 
                         enemies.remove(enemy)
                         enemy_count_on_screen -= 1
                         score += 1
-                    # (breakなしで範囲内すべてにヒット)
+            if hit_found_this_frame_left:
+                left_marker_color = GREEN_MARKER # ★ヒットしたので緑
+        
+        if hit_dekopin_right:
+            # ★ 当たり判定の中心を flick_pos (中指先端)＆動的半径に変更
+            dekopin_hit_circle = pygame.Rect(right_flick_pos[0] - right_dekopin_radius, right_flick_pos[1] - right_dekopin_radius, right_dekopin_radius * 2, right_dekopin_radius * 2)
+            for enemy in list(enemies): 
+                if enemy.rect.colliderect(dekopin_hit_circle):
+                    hit_found_this_frame_right = True
+                    if enemy.take_damage(1): 
+                        enemies.remove(enemy)
+                        enemy_count_on_screen -= 1
+                        score += 1
+            if hit_found_this_frame_right:
+                right_marker_color = GREEN_MARKER # ★ヒットしたので緑
+
 
     elif game_state == 'GAMEOVER_TIMEUP' or game_state == 'GAMEOVER_ENEMY_OVERFLOW':
         # リトライボタンの処理
@@ -595,14 +652,16 @@ while running:
         enemies.draw(game_surface) # 敵を描画
 
         if game_state == 'READY':
-            # ★修正: ホバー判定は「溜め(黄色)」または「攻撃(緑)」のマーカーが出ている時
+            # ★ホバー判定は「溜め(黄色)」のマーカーが出ている時
             is_hovering_start = False
-            if left_marker_color is not None:
-                dekopin_hit_circle_left_game = pygame.Rect(left_cursor_pos[0] - dekopin_range_radius, left_cursor_pos[1] - dekopin_range_radius, dekopin_range_radius * 2, dekopin_range_radius * 2)
+            if left_marker_color == YELLOW_MARKER:
+                # ★当たり判定の中心を flick_pos (中指先端)＆動的半径に変更
+                dekopin_hit_circle_left_game = pygame.Rect(left_flick_pos[0] - left_dekopin_radius, left_flick_pos[1] - left_dekopin_radius, left_dekopin_radius * 2, left_dekopin_radius * 2)
                 if start_button_rect_game.colliderect(dekopin_hit_circle_left_game):
                     is_hovering_start = True
-            if right_marker_color is not None:
-                dekopin_hit_circle_right_game = pygame.Rect(right_cursor_pos[0] - dekopin_range_radius, right_cursor_pos[1] - dekopin_range_radius, dekopin_range_radius * 2, dekopin_range_radius * 2)
+            if right_marker_color == YELLOW_MARKER:
+                # ★当たり判定の中心を flick_pos (中指先端)＆動的半径に変更
+                dekopin_hit_circle_right_game = pygame.Rect(right_flick_pos[0] - right_dekopin_radius, right_flick_pos[1] - right_dekopin_radius, right_dekopin_radius * 2, right_dekopin_radius * 2)
                 if start_button_rect_game.colliderect(dekopin_hit_circle_right_game):
                     is_hovering_start = True
                  
@@ -621,14 +680,22 @@ while running:
         # 決定されたマーカー色 (YELLOW_MARKER, GREEN_MARKER, or None) に基づいて描画
         
         if left_marker_color: # Noneでなければ(黄色か緑なら)描画
-            dekopin_circle_surface_left = pygame.Surface((dekopin_range_radius * 2, dekopin_range_radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(dekopin_circle_surface_left, left_marker_color, (dekopin_range_radius, dekopin_range_radius), dekopin_range_radius)
-            game_surface.blit(dekopin_circle_surface_left, (left_cursor_pos[0] - dekopin_range_radius, left_cursor_pos[1] - dekopin_range_radius))
+            # ★動的半径でSurfaceを作成
+            radius = int(left_dekopin_radius)
+            if radius > 0:
+                dekopin_circle_surface_left = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(dekopin_circle_surface_left, left_marker_color, (radius, radius), radius)
+                # ★描画位置を flick_pos (中指先端) に変更
+                game_surface.blit(dekopin_circle_surface_left, (left_flick_pos[0] - radius, left_flick_pos[1] - radius))
 
         if right_marker_color: # Noneでなければ(黄色か緑なら)描画
-            dekopin_circle_surface_right = pygame.Surface((dekopin_range_radius * 2, dekopin_range_radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(dekopin_circle_surface_right, right_marker_color, (dekopin_range_radius, dekopin_range_radius), dekopin_range_radius)
-            game_surface.blit(dekopin_circle_surface_right, (right_cursor_pos[0] - dekopin_range_radius, right_cursor_pos[1] - dekopin_range_radius))
+            # ★動的半径でSurfaceを作成
+            radius = int(right_dekopin_radius)
+            if radius > 0:
+                dekopin_circle_surface_right = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(dekopin_circle_surface_right, right_marker_color, (radius, radius), radius)
+                # ★描画位置を flick_pos (中指先端) に変更
+                game_surface.blit(dekopin_circle_surface_right, (right_flick_pos[0] - radius, right_flick_pos[1] - radius))
 
 
     # --- UIパネルの描画 ---
@@ -659,7 +726,13 @@ while running:
     for line in instructions:
         log_text = font_log.render(line, True, GREEN)
         log_surface.blit(log_text, (15, y_pos))
-        y_pos += 25
+        # ★Y座標の増分を調整
+        if "Green: HIT!" in line:
+            y_pos += 20 # HP表示行の行間を詰める
+        elif "Purple:1" in line:
+             y_pos += 30 # 次の行間を空ける
+        else:
+             y_pos += 25
 
     # --- カメラパネル (左下) ---
     cam_surface = screen.subsurface(CAM_PANEL_RECT)
