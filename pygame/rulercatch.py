@@ -60,15 +60,14 @@ FPS = 60 # フレームレート
 
 # ★ 重力オプション辞書 (名前: m/s^2)
 GRAVITY_OPTIONS = {
-    "Sun": 274.0,
-    "Earth": 9.8,
-    "Mars": 3.7,
-    "Venus": 8.87,
-    "Jupiter": 24.79,
-    "Saturn": 10.44,
-    "Uranus": 8.69,
-    "Neptune": 11.15,
-    "Pluto": 0.62,
+    "Sun": 274.0, #太陽
+    "Earth": 9.8, #地球
+    "Mars": 3.7, #火星
+    "Venus": 8.87, #金星
+    "Jupiter": 24.79, #木星
+    "Saturn": 10.44, #土星
+    "Uranus": 8.69, #天王星
+    "Neptune": 11.15, #海王星
 }
 # ★ 選択中の重力キーと計算後の加速度
 selected_gravity_key = "Earth"
