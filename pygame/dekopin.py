@@ -142,11 +142,11 @@ try:
     enemy_images["purple"] = img_purple
 
     img_red = pygame.image.load("image/enemy_red.png").convert_alpha()
-    img_red = pygame.transform.scale(img_red, (70, 70))
+    img_red = pygame.transform.scale(img_red, (80, 80))
     enemy_images["red"] = img_red
 
-    img_orange = pygame.image.load("image/decoenemy.png").convert_alpha()
-    img_orange = pygame.transform.scale(img_orange, (70, 70))
+    img_orange = pygame.image.load("image/dekoenemy.png").convert_alpha()
+    img_orange = pygame.transform.scale(img_orange, (300, 300))
     enemy_images["orange"] = img_orange
 except FileNotFoundError as e:
     print(f"エラー: 敵画像が見つかりません。 {e}")
@@ -206,7 +206,7 @@ score = 0
 purple_enemies_spawned = 0 # 赤が出てから何体紫が出たか
 red_enemies_spawned = 0 # オレンジが出てから何体赤が出たか
 enemy_count_on_screen = 0
-MAX_ENEMIES_ON_SCREEN = 50 # 画面上の最大敵数
+MAX_ENEMIES_ON_SCREEN = 40 # 画面上の最大敵数
 
 # --- UI要素 ---
 start_button_rect_screen = pygame.Rect(0, 0, 200, 80)
@@ -216,7 +216,7 @@ retry_button_rect_screen.center = (GAME_PANEL_RECT.centerx, GAME_PANEL_RECT.bott
 
 # --- 説明テキスト ---
 instructions = [
-    "--- Dekopin Challenge ---",
+    "--- Dekopin mode ---",
     "1. Put your hand over",
     "   the START button.",
     "2. Flick your finger ",
