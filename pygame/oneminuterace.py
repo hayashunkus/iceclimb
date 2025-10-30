@@ -226,7 +226,8 @@ def format_time(ms):
 running = True
 clock = pygame.time.Clock()
 # ★変更: ログメッセージ
-add_log("Game Ready. Grab to start 60sec climb.")
+add_log("Game Ready.")
+add_log("Grab to start 60sec climb.")
 # ★ カメラ映像を保持する変数
 camera_surface_scaled = None
 
@@ -512,9 +513,10 @@ while running:
     time_text = font_ui.render(time_text_str, True, WHITE)
     score_surface.blit(time_text, (15, 110))
 
-    # --- (削除) Kills と 'R' Key の表示 ---
-    # kill_text_str = ... (削除)
-    # r_text = ... (削除)
+    r_text1 = font_log.render("Please reload,", True, GREEN)
+    r_text2 = font_log.render("if you want to retry.", True, GREEN)
+    score_surface.blit(r_text1, (15, 230))
+    score_surface.blit(r_text2, (15, 260))
 
 
     # --- ログパネル (左中) ---

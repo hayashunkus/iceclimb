@@ -259,7 +259,8 @@ def format_time(ms):
 # --- メインループ ---
 running = True
 clock = pygame.time.Clock()
-add_log("Game Ready. Press 'R' for 90m Rocket.")
+add_log("Game Ready.")
+
 # ★ カメラ映像を保持する変数
 camera_surface_scaled = None
 
@@ -543,8 +544,17 @@ while running:
                 add_log(f"Enemy Defeated! ({enemy_kill_count})")
                 if enemy_kill_count > 0 and enemy_kill_count % 5 == 0:
                     add_log("5 Kills! +10m Bonus!")
+                    # ★ 100m地点のYオフセットを計算
+                    # height_climbed = (max_scroll - y_offset) / PIXELS_PER_METER
+                    # 100.0 = (max_scroll - y_offset) / 360
+                    # y_offset = max_scroll - (100.0 * 360)
+                    min_y_offset_for_100m = max_scroll - (GOAL_HOLD_METERS * PIXELS_PER_METER)
+                    # 10m上昇 (3600ピクセル引く)
                     world_y_offset -= (10 * PIXELS_PER_METER)
-                    if world_y_offset < 0: world_y_offset = 0
+                    # ★ 100m地点 (min_y_offset_for_100m) より小さくならないようにする
+                    if world_y_offset < min_y_offset_for_100m:
+                        world_y_offset = min_y_offset_for_100m
+                    #if world_y_offset < 0: world_y_offset = 0
                     left_was_holding = False
                     right_was_holding = False
                     current_fall_velocity = 0
@@ -647,8 +657,12 @@ while running:
     kill_text = font_ui.render(kill_text_str, True, WHITE)
     score_surface.blit(kill_text, (15, 160))
 
-    r_text = font_log.render("'R' Key: 90m Rocket", True, GREEN)
-    score_surface.blit(r_text, (15, 250))
+    r_text0 = font_log.render("'R' Key: 90m Rocket", True, GREEN)
+    r_text1 = font_log.render("Please reload,", True, GREEN)
+    r_text2 = font_log.render("if you want to retry.", True, GREEN)
+    score_surface.blit(r_text0, (15, 200))
+    score_surface.blit(r_text1, (15, 230))
+    score_surface.blit(r_text2, (15, 260))
 
 
     # --- ログパネル (左中) ---

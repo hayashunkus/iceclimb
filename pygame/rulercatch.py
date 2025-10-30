@@ -355,6 +355,17 @@ while running:
             start_activated = True
         elif right_closed_this_frame and start_button_rect_game.colliderect(right_cursor_rect_game):
             start_activated = True
+        
+        # 2. ★ マウスクリックでスタート (ここから追加)
+        mouse_x_in_game = mouse_pos[0] - GAME_PANEL_RECT.left
+        mouse_y_in_game = mouse_pos[1] - GAME_PANEL_RECT.top
+        
+        # ゲームパネル内でのクリックかをまず確認
+        if GAME_PANEL_RECT.collidepoint(mouse_pos):
+             # ゲームパネル内座標のスタートボタンRectと衝突判定
+             if start_button_rect_game.collidepoint(mouse_x_in_game, mouse_y_in_game) and mouse_click:
+                  start_activated = True # ★ クリックでもアクティベート
+        # ★ (ここまで追加)
 
         if start_activated:
             game_state = 'WAITING'

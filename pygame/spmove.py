@@ -699,6 +699,11 @@ while running:
     
     enemy_heal_text = font_ui.render(f"Heal: {enemy_heal_count}", True, WHITE)
     score_surface.blit(enemy_heal_text, (15, 180))
+    
+    r_text1 = font_log.render("Please reload,", True, GREEN)
+    r_text2 = font_log.render("if you want to retry.", True, GREEN)
+    score_surface.blit(r_text1, (15, 230))
+    score_surface.blit(r_text2, (15, 260))
 
 
     # --- ログパネル (左中) ---
@@ -734,5 +739,3 @@ if cap.isOpened():
     cap.release()
 cv2.destroyAllWindows()
 pygame.quit()
-
-#波動の表示

@@ -243,8 +243,7 @@ def format_time(ms):
 # --- メインループ ---
 running = True
 clock = pygame.time.Clock()
-# ★変更: 90m -> 40m ロケットに
-add_log("Game Ready. Press 'R' for 40m Rocket.")
+add_log("Game Ready.")
 # ★ カメラ映像を保持する変数
 camera_surface_scaled = None
 
@@ -570,8 +569,12 @@ while running:
     # score_surface.blit(kill_text, (15, 160)) (削除)
 
     # ★変更: 90m -> 40m
-    r_text = font_log.render("'R' Key: 40m Rocket", True, GREEN)
-    score_surface.blit(r_text, (15, 250))
+    r_text0 = font_log.render("'R' Key: 40m Rocket", True, GREEN)
+    r_text1 = font_log.render("Please reload,", True, GREEN)
+    r_text2 = font_log.render("if you want to retry.", True, GREEN)
+    score_surface.blit(r_text0, (15, 200))
+    score_surface.blit(r_text1, (15, 230))
+    score_surface.blit(r_text2, (15, 260))
 
 
     # --- ログパネル (左中) ---
