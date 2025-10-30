@@ -43,7 +43,7 @@ class Icicle(pygame.sprite.Sprite):
     def reset(self):
         # 画面上部中央に配置
         self.rect.centerx = GAME_PANEL_WIDTH // 2
-        self.rect.bottom = 0 # 上端よりさらに上に配置
+        self.rect.bottom = 100 # 上端よりさらに上に配置
         self.velocity_y = 0.0 # 初速度
 
     def update(self, gravity_accel):

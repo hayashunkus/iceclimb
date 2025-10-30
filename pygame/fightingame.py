@@ -1,3 +1,4 @@
+#これは腕も検知する　あまりうまくいかない
 import cv2
 import mediapipe as mp
 import pygame

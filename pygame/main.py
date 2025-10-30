@@ -1,3 +1,4 @@
+#もう使わない
 import pygame
 pygame.init()
 
