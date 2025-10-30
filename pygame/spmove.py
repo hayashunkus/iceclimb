@@ -484,16 +484,17 @@ while running:
                 guard_duration_ms = current_time_ms - guard_start_time
                 
                 # ★★★ 修正: 2秒維持ボーナス (2000ms) ★★★
-                if guard_duration_ms >= 2000:
-                    # ログが連続しないよう、2秒ごとにボーナス
-                    if (current_time_ms - last_guard_bonus_time) >= 2000: 
-                        
-                        # ★★★ 修正: エナジー回復量 +10 ★★★
-                        add_log("Guard Bonus! HP+100, E+10")
-                        player_hp = min(PLAYER_MAX_HP, player_hp + 100)
-                        player_energy = min(PLAYER_MAX_ENERGY, player_energy + 10)
-                        last_guard_bonus_time = current_time_ms # タイマーリセット
-                        
+                # --- 削除: ガード維持ボーナスのロジック ---
+                # if guard_duration_ms >= 2000:
+                #     # ログが連続しないよう、2秒ごとにボーナス
+                #     if (current_time_ms - last_guard_bonus_time) >= 2000: 
+                #         
+                #         # ★★★ 修正: エナジー回復量 +10 ★★★
+                #         add_log("Guard Bonus! HP+100, E+10")
+                #         player_hp = min(PLAYER_MAX_HP, player_hp + 100)
+                #         player_energy = min(PLAYER_MAX_ENERGY, player_energy + 10)
+                #         last_guard_bonus_time = current_time_ms # タイマーリセット
+                
             else:
                 player_state = 'kihon' # 防御解除
                 guard_duration_ms = 0
@@ -579,7 +580,12 @@ while running:
             
             if player_state == 'guard' and ball[0].colliderect(guard_rect):
                 enemy_bullets.remove(ball)
-                add_log("Guarded!")
+                
+                # ★★★ 修正: ガード成功ボーナス ★★★
+                add_log("Guarded! HP+100, E+1")
+                player_hp = min(PLAYER_MAX_HP, player_hp + 100)
+                player_energy = min(PLAYER_MAX_ENERGY, player_energy + 1)
+                
                 continue
             
             if ball[0].colliderect(player_rect):
@@ -716,3 +722,5 @@ if cap.isOpened():
     cap.release()
 cv2.destroyAllWindows()
 pygame.quit()
+
+#波動の表示
