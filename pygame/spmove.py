@@ -107,24 +107,23 @@ img_ball = load_image("image/ball.png", (50, 50), RED)
 
 # 気弾アニメーションリスト
 img_kidan = [
-    load_image("image/kidan1.png", (80, 80), YELLOW), # 手前から
+    load_image("image/kidan3.png", (80, 80), YELLOW), # 手前から
     load_image("image/kidan2.png", (80, 80), YELLOW),
-    load_image("image/kidan3.png", (80, 80), YELLOW), # 奥へ
+    load_image("image/kidan1.png", (80, 80), YELLOW), # 奥へ
 ]
-
+# 波動アニメーションリスト
 img_hado_bullets_raw = [
-    load_image("image/hado1.png", (120, 120), PURPLE),
-    load_image("image/hado2.png", (120, 120), PURPLE),
-    load_image("image/hado3.png", (120, 120), PURPLE),
-    load_image("image/hado4.png", (120, 120), PURPLE),
+    load_image("image/hado4.png", (90, 150), PURPLE),
+    load_image("image/hado2.png", (90, 150), PURPLE),
+    load_image("image/hado1.png", (90, 150), PURPLE),
 ]
 
 # 波動アニメーションリスト
-img_hado_animation_list = [
-    img_hado_bullets_raw[0], # hado1
-    img_hado_bullets_raw[1], # hado2
-    img_hado_bullets_raw[2], # hado3
-]
+#img_hado_animation_list = [
+#    img_hado_bullets_raw[0], # hado1
+#    img_hado_bullets_raw[1], # hado2
+#    img_hado_bullets_raw[2], # hado3
+#]
 
 # ダメージエフェクトのサイズを拡大
 EFFECT_SCALE = 1.5
@@ -158,9 +157,9 @@ ENEMY_MAX_HP = 10000
 enemy_heal_count = 20
 
 # 位置
-player_rect = img_kihon.get_rect(center=(GAME_PANEL_WIDTH * 0.25, GAME_HEIGHT // 2))
-enemy_rect = img_enemy.get_rect(center=(GAME_PANEL_WIDTH * 0.75, GAME_HEIGHT // 2))
-guard_rect = img_guard.get_rect(center=(player_rect.centerx + 80, player_rect.centery))
+player_rect = img_kihon.get_rect(center=(GAME_PANEL_WIDTH * 0.20, GAME_HEIGHT // 2))
+enemy_rect = img_enemy.get_rect(center=(GAME_PANEL_WIDTH * 0.80, GAME_HEIGHT // 2))
+guard_rect = img_guard.get_rect(center=(player_rect.centerx + 75, player_rect.centery))
 
 # 状態管理
 player_state = 'kihon' # kihon, punch_right, punch_left, kikouha, hado, guard
@@ -438,9 +437,11 @@ while running:
                 player_state_timer = 1500 # 1.5秒硬直
                 player_energy -= 5
                 add_log("HADO! (E-5)")
-                hado_width = sum(img.get_width() for img in img_hado_animation_list)
-                hado_height = img_hado_animation_list[0].get_height()
-                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - hado_height // 2, hado_width, hado_height), 'hado', 8]) # 弾速 8
+                #hado_width = sum(img.get_width() for img in img_hado_animation_list)
+                hado_width = sum(img.get_width() for img in img_hado_bullets_raw)
+                #hado_height = img_hado_animation_list[0].get_height()
+                hado_height = img_hado_bullets_raw[0].get_height()
+                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - hado_height // 2 + 30, hado_width, hado_height), 'hado', 7]) # 弾速 7 
 
             # 優先2: 打撃 (両手グー ＆ 片手突き) (変更なし)
             elif (not is_user_left_open and not is_user_right_open) and \
@@ -470,7 +471,7 @@ while running:
                 add_log("KIKOUHA! (E-2)")
                 kidan_width = sum(img.get_width() for img in img_kidan)
                 kidan_height = img_kidan[0].get_height()
-                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - kidan_height // 2, kidan_width, kidan_height), 'kidan', 10]) # 弾速 10
+                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - kidan_height // 2, kidan_width, kidan_height), 'kidan', 5]) # 弾速 5
 
             # 優先4: ガード (指先合わせ) (変更なし)
             elif is_fingertips_touching(user_left_hand_landmarks, user_right_hand_landmarks):
@@ -532,8 +533,8 @@ while running:
                 dy = player_rect.centery - enemy_rect.centery
                 dist = math.hypot(dx, dy)
                 if dist == 0: dist = 1
-                vx = (dx / dist) * 10
-                vy = (dy / dist) * 10
+                vx = (dx / dist) * 5 #10→5
+                vy = (dy / dist) * 5 #10→5
                 enemy_bullets.append([ball_rect, vx, vy])
 
         # (3) プレイヤーの弾の移動と当たり判定
@@ -571,6 +572,16 @@ while running:
                 
                 if collided_with_enemy_ball:
                     continue
+            # 敵の弾を貫通 (波動のみ)
+            elif bullet[1] == 'hado':
+                for enemy_ball in enemy_bullets[:]:
+                    if bullet[0].colliderect(enemy_ball[0]):
+                        collision_point = enemy_ball[0].center # 敵の弾の位置にエフェクト
+                        hit_effects.append([img_hado_dm, img_hado_dm.get_rect(center=collision_point), 200])
+                        enemy_bullets.remove(enemy_ball) # 敵の弾だけ消える
+                        add_log("Hado breaks ball!")
+                        # 波動(bullet)は削除しない
+                        # breakもしない (波動は複数の敵の弾を貫通できるため)
 
 
         # (4) 敵の弾の移動と当たり判定
@@ -650,7 +661,8 @@ while running:
                     game_surface.blit(img, (draw_x, bullet[0].top))
                     draw_x += img.get_width()
             elif bullet[1] == 'hado':
-                for img in img_hado_animation_list:
+                #for img in img_hado_animation_list:
+                for img in img_hado_bullets_raw:
                     game_surface.blit(img, (draw_x, bullet[0].top))
                     draw_x += img.get_width()
 

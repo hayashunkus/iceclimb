@@ -2,7 +2,7 @@ import pygame
 pygame.init()
 
 # 画面設定
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 800, 600 #画面大きさ変更
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("ゲームのホーム画面")
 clock = pygame.time.Clock()
