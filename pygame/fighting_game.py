@@ -71,7 +71,7 @@ def load_image(path, size=None, fallback_color=ORANGE):
         surface.fill(fallback_color)
         return surface
 
-# --- ★★★ 修正箇所: "image/" プレフィックスを追加 ★★★ ---
+# --- 画像読み込み ---
 
 # プレイヤー画像
 PLAYER_SIZE = (200, 400)
@@ -82,7 +82,7 @@ img_kikouha = load_image("image/kikouha.png", PLAYER_SIZE, (0, 100, 200))
 img_hado = load_image("image/hissatuhado.png", PLAYER_SIZE, (100, 100, 255))
 img_guard = load_image("image/gard.png", (100, 400), (0, 200, 200)) # ガード用
 
-# ★ ダンサーアニメーション画像の読み込み
+# ダンサーアニメーション画像の読み込み
 dancer_images = []
 dancer_frame = 0
 dancer_frame_time = 0
@@ -113,6 +113,16 @@ img_hado_bullets = [
     load_image("image/hado3.png", (120, 120), PURPLE),
     load_image("image/hado4.png", (120, 120), PURPLE),
 ]
+# ★★★ 修正: 波動アニメーションリストを定義 ★★★
+img_hado_animation_list = [
+    img_hado_bullets[0], # hado1
+    img_hado_bullets[1], # hado2
+    img_hado_bullets[2], # hado3
+    img_hado_bullets[2], # hado3
+    img_hado_bullets[2], # hado3
+    img_hado_bullets[3]  # hado4
+]
+
 img_dageki_dm = load_image("image/dagekidm.png", (100, 100), ORANGE)
 img_kidan_dm = load_image("image/kidandm.png", (150, 150), YELLOW)
 img_hado_dm = load_image("image/hadodm.png", (200, 200), PURPLE)
@@ -133,12 +143,10 @@ except FileNotFoundError:
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     print("エラー: カメラを起動できません。")
-    # ★★★ 修正: 即時終了の原因だった running = False を削除 ★★★
-    # running = False 
 
 # --- ★ 格闘ゲーム変数 ★ ---
 
-# ステータス
+# ステータス (★ ユーザーのコードスニペットに基づき変更)
 player_hp = 10000
 PLAYER_MAX_HP = 10000
 player_energy = 100
@@ -176,10 +184,12 @@ guard_duration_ms = 0
 # ジェスチャー判定用
 prev_left_elbow_angle = 180
 prev_right_elbow_angle = 180
+
+# ★★★ 修正: 角度のロジックを修正 ★★★
 # 腕の角度の閾値 (度)
-ELBOW_ANGLE_STRAIGHT = 80  # これより小さいと「伸びている」
-ELBOW_ANGLE_BENT = 120 # これより大きいと「曲がっている」
-GUARD_ANGLE = 90 # 防御判定 (これより大きいと曲がっている)
+ELBOW_ANGLE_STRAIGHT = 160 # これより大きいと「伸びている」 (180に近い)
+ELBOW_ANGLE_BENT = 100     # これより小さいと「曲がっている」 (90に近い)
+GUARD_ANGLE = 90         # 防御判定 (これより小さいと曲がっている)
 
 # テキストログ
 log_messages = []
@@ -231,7 +241,7 @@ def calculate_angle(a, b, c):
         # 度数法に変換
         return np.degrees(angle)
     except:
-        return 180 # エラー時は「伸びている」として処理
+        return 180 # エラー時は「伸びている」として処理 (安全のため)
 
 def draw_bar(surface, rect, value, max_value, color, bg_color=GRAY):
     """HPバーやエナジーバーを描画する"""
@@ -273,7 +283,7 @@ while running:
         else:
             game_surface.fill(SKY_BLUE)
 
-        # 結果テキスト
+        # 結果テキスト (★ ユーザーのコードスニペットに基づき変更)
         if game_won:
             result_text_str = "Win!!"
             result_color = ORANGE
@@ -287,6 +297,7 @@ while running:
             game_surface.get_height() // 3 - result_text.get_height() // 2
         ))
         
+        # (★ ユーザーのコードスニペットに基づき追加)
         if dancer_images:
             dancer_frame_time += delta_time_ms
             if dancer_frame_time > ANIMATION_SPEED_MS:
@@ -380,9 +391,10 @@ while running:
             guard_duration_ms = 0 # 状態がリセットされたらガード維持時間もリセット
 
         # (1) 防御判定 (最優先)
+        # ★★★ 修正: 角度のロジックを > から < に変更 ★★★
         if player_state == 'kihon' and \
-           current_left_elbow_angle > GUARD_ANGLE and \
-           current_right_elbow_angle > GUARD_ANGLE:
+           current_left_elbow_angle < GUARD_ANGLE and \
+           current_right_elbow_angle < GUARD_ANGLE:
             
             player_state = 'guard'
             guard_start_time = pygame.time.get_ticks()
@@ -390,7 +402,8 @@ while running:
 
         # (2) 防御継続判定
         if player_state == 'guard':
-            if current_left_elbow_angle > GUARD_ANGLE and current_right_elbow_angle > GUARD_ANGLE:
+            # ★★★ 修正: 角度のロジックを > から < に変更 ★★★
+            if current_left_elbow_angle < GUARD_ANGLE and current_right_elbow_angle < GUARD_ANGLE:
                 guard_duration_ms = pygame.time.get_ticks() - guard_start_time
                 # 5秒維持ボーナス
                 if guard_duration_ms >= 5000:
@@ -405,9 +418,9 @@ while running:
         # (3) 攻撃判定 (kihon状態の時のみ)
         if player_state == 'kihon':
             
-            # 腕の「曲→伸」判定
-            left_arm_extended = (prev_left_elbow_angle > ELBOW_ANGLE_BENT) and (current_left_elbow_angle < ELBOW_ANGLE_STRAIGHT)
-            right_arm_extended = (prev_right_elbow_angle > ELBOW_ANGLE_BENT) and (current_right_elbow_angle < ELBOW_ANGLE_STRAIGHT)
+            # ★★★ 修正: 腕の「曲→伸」判定ロジックを変更 ★★★
+            left_arm_extended = (prev_left_elbow_angle < ELBOW_ANGLE_BENT) and (current_left_elbow_angle > ELBOW_ANGLE_STRAIGHT)
+            right_arm_extended = (prev_right_elbow_angle < ELBOW_ANGLE_BENT) and (current_right_elbow_angle > ELBOW_ANGLE_STRAIGHT)
 
             # 波動 (両手パー + 両腕伸ばし + エナジー5)
             if is_left_open and is_right_open and (left_arm_extended or right_arm_extended) and player_energy >= 5:
@@ -482,6 +495,7 @@ while running:
                 vy = (dy / dist) * 10
                 enemy_bullets.append([ball_rect, vx, vy])
 
+        # ★★★ 修正: 弾の当たり判定と相殺ロジックを修正 ★★★
         # (3) プレイヤーの弾の移動と当たり判定
         for bullet in player_bullets[:]: # コピーをループ
             bullet[0].x += bullet[2] # speed
@@ -489,35 +503,43 @@ while running:
             if bullet[1] == 'kidan':
                 bullet[3] = (bullet[3] + 0.2) % len(img_kidan) # アニメ速度
             elif bullet[1] == 'hado':
-                bullet[3] = (bullet[3] + 0.2) % len(img_hado_bullets) # アニメ速度
+                # ★★★ 修正: 波動アニメーションロジック ★★★
+                bullet[3] += 0.2 # animation_frame (float)
+                if bullet[3] >= len(img_hado_animation_list):
+                    bullet[3] = len(img_hado_animation_list) - 1 # 最後のフレーム (hado4) で止める
 
             # 敵との当たり判定
             if bullet[0].colliderect(enemy_rect):
                 if bullet[1] == 'kidan':
-                    enemy_hp -= 400 #200→400
+                    enemy_hp -= 400 # (★ ユーザーのコードスニペットに基づき 200->400)
                     hit_effects.append([img_kidan_dm, img_kidan_dm.get_rect(center=enemy_rect.center), 200])
                 elif bullet[1] == 'hado':
-                    enemy_hp -= 1000 #500→1000
+                    enemy_hp -= 1000 # (★ ユーザーのコードスニペットに基づき 500->1000)
                     hit_effects.append([img_hado_dm, img_hado_dm.get_rect(center=enemy_rect.center), 200])
                 player_bullets.remove(bullet)
-                continue
+                continue # この弾は消えたので次の弾へ
             
             # 画面外
             if bullet[0].left > GAME_PANEL_WIDTH:
                 player_bullets.remove(bullet)
-                continue
+                continue # この弾は消えたので次の弾へ
             
             # 敵の弾との相殺 (気弾のみ)
             if bullet[1] == 'kidan':
+                collided_with_enemy_ball = False
                 for enemy_ball in enemy_bullets[:]:
                     if bullet[0].colliderect(enemy_ball[0]):
+                        # ★★★ 修正: 相殺時にエフェクト追加 ★★★
+                        collision_point = bullet[0].center
+                        hit_effects.append([img_kidan_dm, img_kidan_dm.get_rect(center=collision_point), 200]) # 0.2秒
                         player_bullets.remove(bullet)
                         enemy_bullets.remove(enemy_ball)
                         add_log("Offset!")
-                        break # 内側のループを抜ける
-                else:
-                    continue # 相殺がなければ外側のループを続ける
-                break # 相殺があったら外側のループも抜ける (bulletが削除されたため)
+                        collided_with_enemy_ball = True
+                        break # 内側のループを抜ける (この弾はもうない)
+                
+                if collided_with_enemy_ball:
+                    continue # この弾は相殺削除されたので、次の弾へ
 
 
         # (4) 敵の弾の移動と当たり判定
@@ -557,11 +579,11 @@ while running:
         if player_hp <= 0:
             game_finished = True
             game_won = False
-            add_log("You Lose...")
+            add_log("You Lose...") # (★ ユーザーのコードスニペットに基づき変更)
         elif enemy_hp <= 0:
             game_finished = True
             game_won = True
-            add_log("Win!!")
+            add_log("Win!!") # (★ ユーザーのコードスニペットに基づき変更)
 
 
         # 6. ★★★ Pygame ゲーム画面描画 ★★★
@@ -592,7 +614,9 @@ while running:
             if bullet[1] == 'kidan':
                 game_surface.blit(img_kidan[int(bullet[3])], bullet[0])
             elif bullet[1] == 'hado':
-                game_surface.blit(img_hado_bullets[int(bullet[3])], bullet[0])
+                # ★★★ 修正: 波動アニメーションリストから描画 ★★★
+                frame_index = int(bullet[3])
+                game_surface.blit(img_hado_animation_list[frame_index], bullet[0])
 
         # 敵の弾 描画
         for ball in enemy_bullets:
@@ -622,6 +646,7 @@ while running:
     player_hp_text = font_ui.render(f"Player HP: {player_hp}", True, GREEN)
     score_surface.blit(player_hp_text, (15, 60))
 
+    # (★ ユーザーのコードスニペットに基づき色を ORANGE に変更)
     player_en_text = font_ui.render(f"Energy: {player_energy}", True, ORANGE)
     score_surface.blit(player_en_text, (15, 100))
 
@@ -669,4 +694,5 @@ if cap.isOpened():
     cap.release()
 cv2.destroyAllWindows()
 pygame.quit()
+
 
