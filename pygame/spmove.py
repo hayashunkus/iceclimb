@@ -118,12 +118,6 @@ img_hado_bullets_raw = [
     load_image("image/hado1.png", (90, 150), PURPLE),
 ]
 
-# 波動アニメーションリスト
-#img_hado_animation_list = [
-#    img_hado_bullets_raw[0], # hado1
-#    img_hado_bullets_raw[1], # hado2
-#    img_hado_bullets_raw[2], # hado3
-#]
 
 # ダメージエフェクトのサイズを拡大
 EFFECT_SCALE = 1.5
@@ -437,9 +431,7 @@ while running:
                 player_state_timer = 1500 # 1.5秒硬直
                 player_energy -= 5
                 add_log("HADO! (E-5)")
-                #hado_width = sum(img.get_width() for img in img_hado_animation_list)
                 hado_width = sum(img.get_width() for img in img_hado_bullets_raw)
-                #hado_height = img_hado_animation_list[0].get_height()
                 hado_height = img_hado_bullets_raw[0].get_height()
                 player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - hado_height // 2 + 30, hado_width, hado_height), 'hado', 7]) # 弾速 7 
 
@@ -483,18 +475,6 @@ while running:
         if player_state == 'guard':
             if is_fingertips_touching(user_left_hand_landmarks, user_right_hand_landmarks):
                 guard_duration_ms = current_time_ms - guard_start_time
-                
-                # ★★★ 修正: 2秒維持ボーナス (2000ms) ★★★
-                # --- 削除: ガード維持ボーナスのロジック ---
-                # if guard_duration_ms >= 2000:
-                #     # ログが連続しないよう、2秒ごとにボーナス
-                #     if (current_time_ms - last_guard_bonus_time) >= 2000: 
-                #         
-                #         # ★★★ 修正: エナジー回復量 +10 ★★★
-                #         add_log("Guard Bonus! HP+100, E+10")
-                #         player_hp = min(PLAYER_MAX_HP, player_hp + 100)
-                #         player_energy = min(PLAYER_MAX_ENERGY, player_energy + 10)
-                #         last_guard_bonus_time = current_time_ms # タイマーリセット
                 
             else:
                 player_state = 'kihon' # 防御解除

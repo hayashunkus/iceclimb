@@ -32,9 +32,6 @@ LOG_PANEL_RECT = pygame.Rect(0, SCORE_PANEL_RECT.height, LEFT_PANEL_WIDTH, int(S
 CAM_PANEL_RECT = pygame.Rect(0, SCORE_PANEL_RECT.height + LOG_PANEL_RECT.height, LEFT_PANEL_WIDTH, int(SCREEN_HEIGHT * 0.3))
 GAME_PANEL_RECT = pygame.Rect(LEFT_PANEL_WIDTH, 0, GAME_PANEL_WIDTH, GAME_HEIGHT)
 
-# --- (削除) エネミーの定義 ---
-# class Enemy(pygame.sprite.Sprite): ... (削除)
-
 
 # --- ゲーム設定と物理定義 ---
 PIXELS_PER_METER = 360
@@ -69,11 +66,7 @@ ORANGE = (255, 165, 0)
 font_ui = pygame.font.Font(None, 36)
 font_log = pygame.font.Font(None, 24)
 font_title = pygame.font.Font(None, 40)
-# (削除) game_over_font = pygame.font.Font(None, 100)
 goal_text_font = pygame.font.Font(None, 80)
-
-# --- (削除) エネミーの画像読み込み ---
-# enemy_image = None (削除)
 
 # ★ ゴール背景の読み込み
 goal_background_image = None
@@ -110,22 +103,10 @@ try:
 except FileNotFoundError:
     print("エラー: image/goalhold.png が見つかりません。")
 
-
-# --- (削除) エネミー管理リスト ---
-# enemy_list = [] (削除)
-
-# --- (削除) エネミー出現イベント ---
-# ENEMY_SPAWN_EVENT = pygame.USEREVENT + 1 (削除)
-# pygame.time.set_timer(ENEMY_SPAWN_EVENT, 5000) (削除)
-
 # プレイヤー（カーソル）の設定 (左右別々に)
 left_cursor_pos = [-100, -100]
 right_cursor_pos = [-100, -100]
 cursor_radius = 45
-
-# --- (削除) デコピン（Flick）検知用の変数 ---
-# FLICK_THRESHOLD = 40 (削除)
-# ... (関連変数すべて削除)
 
 
 # Webカメラの準備
@@ -199,7 +180,6 @@ right_hold_start_y = 0
 world_hold_start_y = 0
 
 # --- ★ゲーム状態の管理 ---
-# (削除) game_over = False
 game_won = False
 
 # --- ★ ゴールホールドタッチ変数 ---
@@ -218,7 +198,6 @@ game_start_flag = False
 # --- ★テキストログ変数 ---
 log_messages = []
 MAX_LOG_LINES = 6
-# (削除) enemy_kill_count = 0
 
 # --- ★ 関数定義 ---
 
@@ -280,9 +259,6 @@ while running:
                 current_fall_velocity = 0
                 add_log("ROCKET! Warping to 40m.")
 
-
-        # --- (削除) エネミー出現イベント ---
-        # if event.type == ENEMY_SPAWN_EVENT ... (削除)
 
     screen.fill(GRAY)
 
@@ -357,13 +333,9 @@ while running:
         # 4. ジェスチャーとゲームロジック
         left_is_grabbing = False
         right_is_grabbing = False
-        # (削除) left_flick_detected = False
-        # (削除) right_flick_detected = False
 
         left_cursor_pos[:] = [-100, -100]
         right_cursor_pos[:] = [-100, -100]
-        # (削除) left_flick_pos[:] = [-100, -100]
-        # (削除) right_flick_pos[:] = [-100, -100]
 
         if results.multi_hand_landmarks:
             for hand_landmarks, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
@@ -372,22 +344,14 @@ while running:
                 mcp_landmark = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
                 hand_pos = (int(mcp_landmark.x * GAME_PANEL_WIDTH), int(mcp_landmark.y * GAME_HEIGHT))
 
-                # --- (削除) デコピン検知ロジック ---
-                # middle_tip = ... (削除)
                 
                 if handedness.classification[0].label == 'Left':
                     left_is_grabbing = not is_open
                     left_cursor_pos[:] = hand_pos
-                    # (削除) left_flick_pos[:] = (flick_pos_x, flick_pos_y)
-                    # (削除) left_middle_tip_y[0] = ...
-                    # (削除) if is_open and flick_velocity > FLICK_THRESHOLD: ...
 
                 elif handedness.classification[0].label == 'Right':
                     right_is_grabbing = not is_open
                     right_cursor_pos[:] = hand_pos
-                    # (削除) right_flick_pos[:] = (flick_pos_x, flick_pos_y)
-                    # (削除) right_middle_tip_y[0] = ...
-                    # (削除) if is_open and flick_velocity > FLICK_THRESHOLD: ...
 
         # --- 当たり判定 (ホールド) ---
         left_cursor_rect = pygame.Rect(left_cursor_pos[0] - cursor_radius, left_cursor_pos[1] - cursor_radius, cursor_radius * 2, cursor_radius * 2)
@@ -490,12 +454,6 @@ while running:
         else:
             both_hands_touching_goal_start_time = 0
 
-
-        # --- (削除) エネミーの更新と当たり判定 ---
-        # left_flick_rect = ... (削除)
-        # for enemy in enemy_list[:]: ... (削除)
-        # (削除) game_over になるロジック ...
-
         # 5. Pygameの描画処理
 
         game_surface = screen.subsurface(GAME_PANEL_RECT)
@@ -512,7 +470,6 @@ while running:
         if goal_hold_image and goal_hold_rect_screen:
              game_surface.blit(goal_hold_image, goal_hold_rect_screen)
 
-        # (削除) for enemy in enemy_list: ...
 
         left_cursor_color = GREEN if left_can_grab else RED
         right_cursor_color = GREEN if right_can_grab else RED
@@ -528,12 +485,6 @@ while running:
             pygame.draw.circle(circle_surface_right, right_cursor_color + (ALPHA_VALUE,), (cursor_radius, cursor_radius), cursor_radius)
             game_surface.blit(circle_surface_right, (right_cursor_pos[0] - cursor_radius, right_cursor_pos[1] - cursor_radius))
 
-        # (削除) デコピンエフェクトの描画
-        # if left_flick_detected: ... (削除)
-        # if right_flick_detected: ... (削除)
-
-    # --- (削除) GAME OVER 画面 ---
-    # else: ... (削除)
 
 
     # --- ★★★ UIパネルの描画 (全状態共通) ★★★ ---
@@ -563,10 +514,6 @@ while running:
     time_text = font_ui.render(time_text_str, True, WHITE)
     score_surface.blit(time_text, (15, 110))
 
-    # --- (削除) Kills 表示 ---
-    # kill_text_str = f"Kills: {enemy_kill_count}" (削除)
-    # kill_text = font_ui.render(kill_text_str, True, WHITE) (削除)
-    # score_surface.blit(kill_text, (15, 160)) (削除)
 
     # ★変更: 90m -> 40m
     r_text0 = font_log.render("'R' Key: 40m Rocket", True, GREEN)
