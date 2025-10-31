@@ -142,12 +142,12 @@ if not cap.isOpened():
 # --- ★ 格闘ゲーム変数 ★ ---
 
 # ステータス
-player_hp = 10000
-PLAYER_MAX_HP = 10000
+player_hp = 5000
+PLAYER_MAX_HP = 5000
 player_energy = 100
 PLAYER_MAX_ENERGY = 100
-enemy_hp = 10000
-ENEMY_MAX_HP = 10000
+enemy_hp = 5000
+ENEMY_MAX_HP = 5000
 enemy_heal_count = 20
 
 # 位置
@@ -425,45 +425,45 @@ while running:
             
             # ★★★ 修正: 優先1: 波動 (両手が グー -> パー) ★★★
             if (user_left_just_opened and user_right_just_opened) and \
-               player_energy >= 5:
+               player_energy >= 50:
                 
                 player_state = 'hado'
-                player_state_timer = 1500 # 1.5秒硬直
-                player_energy -= 5
-                add_log("HADO! (E-5)")
+                player_state_timer = 2000 # 2秒硬直
+                player_energy -= 50
+                add_log("HADO! (E-50)")
                 hado_width = sum(img.get_width() for img in img_hado_bullets_raw)
                 hado_height = img_hado_bullets_raw[0].get_height()
-                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - hado_height // 2 + 30, hado_width, hado_height), 'hado', 7]) # 弾速 7 
+                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - hado_height // 2 + 30, hado_width, hado_height), 'hado', 8]) # 弾速 8 
 
             # 優先2: 打撃 (両手グー ＆ 片手突き) (変更なし)
             elif (not is_user_left_open and not is_user_right_open) and \
                  (user_left_just_punched != user_right_just_punched) and \
-                 player_energy >= 1:
+                 player_energy >= 5:
 
-                enemy_hp -= 100
-                hit_effects.append([img_dageki_dm, img_dageki_dm.get_rect(center=enemy_rect.center), 200]) # 0.2秒
+                enemy_hp -= 200
+                hit_effects.append([img_dageki_dm, img_dageki_dm.get_rect(center=enemy_rect.center), 100]) # 0.1秒
                 
                 if user_left_just_punched: # ユーザーの左手
                     player_state = 'punch_left'
-                    add_log("LEFT PUNCH! (E-1)")
+                    add_log("LEFT PUNCH! (E-5)")
                 else: # user_right_just_punched # ユーザーの右手
                     player_state = 'punch_right'
-                    add_log("RIGHT PUNCH! (E-1)")
+                    add_log("RIGHT PUNCH! (E-5)")
                     
                 player_state_timer = 100 # 0.1秒硬直
-                player_energy -= 1
+                player_energy -= 5
 
             # ★★★ 修正: 優先3: 気弾 (片手が グー -> パー) ★★★
             elif (user_left_just_opened != user_right_just_opened) and \
-                 player_energy >= 2:
+                 player_energy >= 10:
                 
                 player_state = 'kikouha'
                 player_state_timer = 1000 # 1秒硬直
-                player_energy -= 2
-                add_log("KIKOUHA! (E-2)")
+                player_energy -= 10
+                add_log("KIKOUHA! (E-10)")
                 kidan_width = sum(img.get_width() for img in img_kidan)
                 kidan_height = img_kidan[0].get_height()
-                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - kidan_height // 2, kidan_width, kidan_height), 'kidan', 5]) # 弾速 5
+                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - kidan_height // 2, kidan_width, kidan_height), 'kidan', 7]) # 弾速 7
 
             # 優先4: ガード (指先合わせ) (変更なし)
             elif is_fingertips_touching(user_left_hand_landmarks, user_right_hand_landmarks):
@@ -472,15 +472,15 @@ while running:
                 guard_duration_ms = 0
 
         # (5) 防御継続判定
+
         if player_state == 'guard':
             if is_fingertips_touching(user_left_hand_landmarks, user_right_hand_landmarks):
+
                 guard_duration_ms = current_time_ms - guard_start_time
-                
             else:
                 player_state = 'kihon' # 防御解除
                 guard_duration_ms = 0
                 last_guard_bonus_time = 0
-
 
         # 判定用に現在の状態を保存
         prev_user_left_is_open = is_user_left_open
@@ -513,8 +513,8 @@ while running:
                 dy = player_rect.centery - enemy_rect.centery
                 dist = math.hypot(dx, dy)
                 if dist == 0: dist = 1
-                vx = (dx / dist) * 5 #10→5
-                vy = (dy / dist) * 5 #10→5
+                vx = (dx / dist) * 8 #10→8
+                vy = (dy / dist) * 8 #10→8
                 enemy_bullets.append([ball_rect, vx, vy])
 
         # (3) プレイヤーの弾の移動と当たり判定
@@ -524,10 +524,10 @@ while running:
             # 敵との当たり判定
             if bullet[0].colliderect(enemy_rect):
                 if bullet[1] == 'kidan':
-                    enemy_hp -= 400 
+                    enemy_hp -= 500 
                     hit_effects.append([img_kidan_dm, img_kidan_dm.get_rect(center=enemy_rect.center), 200])
                 elif bullet[1] == 'hado':
-                    enemy_hp -= 1000 
+                    enemy_hp -= 3000 
                     hit_effects.append([img_hado_dm, img_hado_dm.get_rect(center=enemy_rect.center), 200])
                 player_bullets.remove(bullet)
                 continue
@@ -573,9 +573,9 @@ while running:
                 enemy_bullets.remove(ball)
                 
                 # ★★★ 修正: ガード成功ボーナス ★★★
-                add_log("Guarded! HP+100, E+1")
-                player_hp = min(PLAYER_MAX_HP, player_hp + 100)
-                player_energy = min(PLAYER_MAX_ENERGY, player_energy + 1)
+                add_log("Guarded! HP+5, E+5")
+                player_hp = min(PLAYER_MAX_HP, player_hp + 5)
+                player_energy = min(PLAYER_MAX_ENERGY, player_energy + 5)
                 
                 continue
             
@@ -641,7 +641,6 @@ while running:
                     game_surface.blit(img, (draw_x, bullet[0].top))
                     draw_x += img.get_width()
             elif bullet[1] == 'hado':
-                #for img in img_hado_animation_list:
                 for img in img_hado_bullets_raw:
                     game_surface.blit(img, (draw_x, bullet[0].top))
                     draw_x += img.get_width()
