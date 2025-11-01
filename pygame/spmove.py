@@ -171,6 +171,10 @@ enemy_heal_timer = 0
 enemy_attack_timer = 0
 enemy_next_attack_time = random.randint(5000, 8000)
 
+# ★★★ 追加: エナジー自動回復タイマー ★★★
+player_energy_regen_timer = 0
+ENERGY_REGEN_TIME_MS = 1000 # 1秒ごと
+
 # 防御タイマー
 guard_start_time = 0
 guard_duration_ms = 0
@@ -438,20 +442,20 @@ while running:
             # 優先2: 打撃 (両手グー ＆ 片手突き) (変更なし)
             elif (not is_user_left_open and not is_user_right_open) and \
                  (user_left_just_punched != user_right_just_punched) and \
-                 player_energy >= 5:
+                 player_energy >= 2:
 
-                enemy_hp -= 200
+                enemy_hp -= 100
                 hit_effects.append([img_dageki_dm, img_dageki_dm.get_rect(center=enemy_rect.center), 100]) # 0.1秒
                 
                 if user_left_just_punched: # ユーザーの左手
                     player_state = 'punch_left'
-                    add_log("LEFT PUNCH! (E-5)")
+                    add_log("LEFT PUNCH! (E-2)")
                 else: # user_right_just_punched # ユーザーの右手
                     player_state = 'punch_right'
-                    add_log("RIGHT PUNCH! (E-5)")
+                    add_log("RIGHT PUNCH! (E-2)")
                     
                 player_state_timer = 100 # 0.1秒硬直
-                player_energy -= 5
+                player_energy -= 2
 
             # ★★★ 修正: 優先3: 気弾 (片手が グー -> パー) ★★★
             elif (user_left_just_opened != user_right_just_opened) and \
@@ -580,13 +584,24 @@ while running:
                 continue
             
             if ball[0].colliderect(player_rect):
-                player_hp -= 200
+                player_hp -= 500
                 enemy_bullets.remove(ball)
-                add_log("Hit! (HP-200)")
+                add_log("Hit! (HP-500)")
                 continue
 
             if ball[0].right < 0 or ball[0].top > GAME_HEIGHT or ball[0].bottom < 0:
                 enemy_bullets.remove(ball)
+        # ★★★ 追加: (4.5) プレイヤーのエナジー自動回復 (HP50%以下) ★★★
+        if player_hp <= (PLAYER_MAX_HP / 2):
+            player_energy_regen_timer += delta_time_ms
+            if player_energy_regen_timer >= ENERGY_REGEN_TIME_MS:
+                player_energy_regen_timer = 0 # タイマーリセット
+                if player_energy < PLAYER_MAX_ENERGY:
+                    player_energy = min(PLAYER_MAX_ENERGY, player_energy + 1)
+                    # add_log("Energy +1 (Low HP)") # ログが煩雑になるためコメントアウト
+        else:
+            # HPが50%を超えたらタイマーリセット
+            player_energy_regen_timer = 0
 
         # (5) ヒットエフェクトのタイマー更新
         for effect in hit_effects[:]:
@@ -653,9 +668,21 @@ while running:
         for effect in hit_effects:
             game_surface.blit(effect[0], effect[1]) # img, rect
 
-        # HP/エナジーバー 描画
-        draw_bar(game_surface, pygame.Rect(player_rect.left, player_rect.top - 30, player_rect.width, 20), player_hp, PLAYER_MAX_HP, GREEN)
-        draw_bar(game_surface, pygame.Rect(player_rect.left, player_rect.top - 55, player_rect.width, 20), player_energy, PLAYER_MAX_ENERGY, BLUE)
+        # ★★★ 修正: HP/エナジーバー 描画 (テキストラベル付き) ★★★
+        
+        # プレイヤーHP
+        hp_bar_rect = pygame.Rect(player_rect.left, player_rect.top - 55, player_rect.width, 20)
+        hp_text_ui = font_log.render("HP", True, WHITE)
+        game_surface.blit(hp_text_ui, (hp_bar_rect.left - hp_text_ui.get_width() - 5, hp_bar_rect.top - 3)) # Y座標を微調整
+        draw_bar(game_surface, hp_bar_rect, player_hp, PLAYER_MAX_HP, GREEN)
+        
+        # プレイヤーエナジー
+        energy_bar_rect = pygame.Rect(player_rect.left, player_rect.top - 30, player_rect.width, 20)
+        e_text_ui = font_log.render("E", True, WHITE)
+        game_surface.blit(e_text_ui, (energy_bar_rect.left - e_text_ui.get_width() - 5, energy_bar_rect.top - 3)) # Y座標を微調整
+        draw_bar(game_surface, energy_bar_rect, player_energy, PLAYER_MAX_ENERGY, BLUE)
+
+        # 敵HP
         draw_bar(game_surface, pygame.Rect(enemy_rect.left, enemy_rect.top - 30, enemy_rect.width, 20), enemy_hp, ENEMY_MAX_HP, RED)
 
 

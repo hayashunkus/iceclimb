@@ -51,7 +51,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def spawn_random_corner(self):
         corner = random.randint(0, 3) # 0:左上, 1:右上, 2:左下, 3:右下
-        padding = 50 # 画面端からのオフセット
+        padding = 30 # 画面端からのオフセット
         if corner == 0: # 左上
             self.rect.topleft = (padding, padding)
         elif corner == 1: # 右上
@@ -146,7 +146,7 @@ try:
     enemy_images["red"] = img_red
 
     img_orange = pygame.image.load("image/dekoenemy.png").convert_alpha()
-    img_orange = pygame.transform.scale(img_orange, (300, 300))
+    img_orange = pygame.transform.scale(img_orange, (250, 250))
     enemy_images["orange"] = img_orange
 except FileNotFoundError as e:
     print(f"エラー: 敵画像が見つかりません。 {e}")
@@ -181,10 +181,10 @@ left_dekopin_radius = dekopin_range_radius_default # ★追加: 動的半径
 right_dekopin_radius = dekopin_range_radius_default # ★追加: 動的半径
 
 # ★ デコピン検出用 (サンプルコードベース)
-FLICK_THRESHOLD = 40 # フリック検知の速度しきい値
+FLICK_THRESHOLD = 30 # フリック検知の速度しきい値
 left_middle_tip_history = [[0, 0], [0, 0]] # ★修正: [古い[x,y], 新しい[x,y]]
 right_middle_tip_history = [[0, 0], [0, 0]] # ★修正: [古い[x,y], 新しい[x,y]]
-TAME_DISTANCE_THRESHOLD = 0.05 # 溜め判定のしきい値 (親指と中指の距離)
+TAME_DISTANCE_THRESHOLD = 0.1 # 溜め判定のしきい値 (親指と中指の距離)
 
 # Webカメラの準備
 cap = cv2.VideoCapture(0)
@@ -197,9 +197,9 @@ game_state = 'READY' # 'READY', 'DEKOPIN_CHALLENGE', 'GAMEOVER_TIMEUP', 'GAMEOVE
 # --- タイマー変数 ---
 start_time = 0
 elapsed_time = 0
-game_duration_ms = 60 * 1000 # 1分 = 60000ミリ秒
+game_duration_ms = 30 * 1000 # 30s = 30000ミリ秒
 enemy_spawn_timer = 0
-enemy_spawn_interval = 1000 / 4 # 毎秒4体なので、1体あたり250ms
+enemy_spawn_interval = 1000 / 3 # 毎秒4体なので、1体あたり250ms
 
 # --- スコアと敵の生成カウンター ---
 score = 0
@@ -703,7 +703,7 @@ while running:
     # --- スコアパネル (左上) ---
     score_surface = screen.subsurface(SCORE_PANEL_RECT)
     score_surface.fill(BLACK)
-    title_text = font_title.render("Dekopin Challenge", True, WHITE)
+    title_text = font_title.render("Dekopin game", True, WHITE)
     score_surface.blit(title_text, (10, 10))
 
     score_text = font_ui.render(f"Score: {score}", True, WHITE)
