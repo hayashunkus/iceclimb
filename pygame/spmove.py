@@ -148,7 +148,7 @@ player_energy = 100
 PLAYER_MAX_ENERGY = 100
 enemy_hp = 5000
 ENEMY_MAX_HP = 5000
-enemy_heal_count = 20
+enemy_heal_count = 30
 
 # 位置
 player_rect = img_kihon.get_rect(center=(GAME_PANEL_WIDTH * 0.20, GAME_HEIGHT // 2))
@@ -163,7 +163,7 @@ game_won = False
 
 # 弾 と エフェクト のリスト
 player_bullets = [] # [Rect, 'type', speed]
-enemy_bullets = [] # [Rect, vector_x, vector_y]
+enemy_bullets = [] # # [Rect, vector_x, vector_y, image_surface]
 hit_effects = [] # [Image, Rect, timer]
 
 # 敵の行動タイマー
@@ -432,30 +432,30 @@ while running:
                player_energy >= 50:
                 
                 player_state = 'hado'
-                player_state_timer = 2000 # 2秒硬直
+                player_state_timer = 2500 # 2.5秒硬直
                 player_energy -= 50
                 add_log("HADO! (E-50)")
                 hado_width = sum(img.get_width() for img in img_hado_bullets_raw)
                 hado_height = img_hado_bullets_raw[0].get_height()
-                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - hado_height // 2 + 30, hado_width, hado_height), 'hado', 8]) # 弾速 8 
+                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - hado_height // 2 + 30, hado_width, hado_height), 'hado', 10]) # 弾速 10 
 
             # 優先2: 打撃 (両手グー ＆ 片手突き) (変更なし)
             elif (not is_user_left_open and not is_user_right_open) and \
                  (user_left_just_punched != user_right_just_punched) and \
-                 player_energy >= 2:
+                 player_energy >= 1:
 
-                enemy_hp -= 100
-                hit_effects.append([img_dageki_dm, img_dageki_dm.get_rect(center=enemy_rect.center), 100]) # 0.1秒
+                enemy_hp -= 150
+                hit_effects.append([img_dageki_dm, img_dageki_dm.get_rect(center=enemy_rect.center), 150]) # 0.1秒
                 
                 if user_left_just_punched: # ユーザーの左手
                     player_state = 'punch_left'
-                    add_log("LEFT PUNCH! (E-2)")
+                    add_log("LEFT PUNCH! (E-1)")
                 else: # user_right_just_punched # ユーザーの右手
                     player_state = 'punch_right'
-                    add_log("RIGHT PUNCH! (E-2)")
+                    add_log("RIGHT PUNCH! (E-1)")
                     
                 player_state_timer = 100 # 0.1秒硬直
-                player_energy -= 2
+                player_energy -= 1
 
             # ★★★ 修正: 優先3: 気弾 (片手が グー -> パー) ★★★
             elif (user_left_just_opened != user_right_just_opened) and \
@@ -467,7 +467,7 @@ while running:
                 add_log("KIKOUHA! (E-10)")
                 kidan_width = sum(img.get_width() for img in img_kidan)
                 kidan_height = img_kidan[0].get_height()
-                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - kidan_height // 2, kidan_width, kidan_height), 'kidan', 7]) # 弾速 7
+                player_bullets.append([pygame.Rect(player_rect.right, player_rect.centery - kidan_height // 2, kidan_width, kidan_height), 'kidan', 8]) # 弾速 8
 
             # 優先4: ガード (指先合わせ) (変更なし)
             elif is_fingertips_touching(user_left_hand_landmarks, user_right_hand_landmarks):
@@ -495,12 +495,12 @@ while running:
 
         # 5. ゲームロジック更新
         
-        # (1) 敵の回復
+        # (1) 敵の回復 5パーセント回復（30カウント１秒ごと）
         enemy_heal_timer += delta_time_ms
         if enemy_heal_timer >= 1000: # 1秒ごと
             enemy_heal_timer = 0
             if enemy_hp < ENEMY_MAX_HP and enemy_heal_count > 0:
-                heal_amount = int(enemy_hp * 0.03)
+                heal_amount = int(enemy_hp * 0.05)
                 enemy_hp = min(ENEMY_MAX_HP, enemy_hp + heal_amount)
                 enemy_heal_count -= 1
 
@@ -508,18 +508,27 @@ while running:
         enemy_attack_timer += delta_time_ms
         if enemy_attack_timer >= enemy_next_attack_time:
             enemy_attack_timer = 0
-            enemy_next_attack_time = random.randint(5000, 10000)
+            enemy_next_attack_time = random.randint(2500, 5000)
             num_balls = random.randint(1, 5)
             add_log(f"Enemy attacks! ({num_balls} balls)")
+            # 1球 (1.0倍) -> 5球 (3.0倍) ( 1 + (n-1)*0.5 )
+            scale_factor = 1.0 + (num_balls - 1) * 0.5
+            original_size = img_ball.get_size()
+            scaled_size = (int(original_size[0] * scale_factor), int(original_size[1] * scale_factor))
+            
+            # この攻撃（num_balls）で使う弾の画像を作成
+            current_attack_ball_img = pygame.transform.scale(img_ball, scaled_size)
             for _ in range(num_balls):
-                ball_rect = img_ball.get_rect(center=enemy_rect.center)
+                #ball_rect = img_ball.get_rect(center=enemy_rect.center)
+                ball_rect = current_attack_ball_img.get_rect(center=enemy_rect.center)
                 dx = player_rect.centerx - enemy_rect.centerx
                 dy = player_rect.centery - enemy_rect.centery
                 dist = math.hypot(dx, dy)
                 if dist == 0: dist = 1
-                vx = (dx / dist) * 8 #10→8
-                vy = (dy / dist) * 8 #10→8
-                enemy_bullets.append([ball_rect, vx, vy])
+                vx = (dx / dist) * 10 #10
+                vy = (dy / dist) * 10 #10
+                #enemy_bullets.append([ball_rect, vx, vy])
+                enemy_bullets.append([ball_rect, vx, vy, current_attack_ball_img])
 
         # (3) プレイヤーの弾の移動と当たり判定
         for bullet in player_bullets[:]: 
@@ -531,7 +540,7 @@ while running:
                     enemy_hp -= 500 
                     hit_effects.append([img_kidan_dm, img_kidan_dm.get_rect(center=enemy_rect.center), 200])
                 elif bullet[1] == 'hado':
-                    enemy_hp -= 3000 
+                    enemy_hp -= 2000 
                     hit_effects.append([img_hado_dm, img_hado_dm.get_rect(center=enemy_rect.center), 200])
                 player_bullets.remove(bullet)
                 continue
@@ -597,8 +606,8 @@ while running:
             if player_energy_regen_timer >= ENERGY_REGEN_TIME_MS:
                 player_energy_regen_timer = 0 # タイマーリセット
                 if player_energy < PLAYER_MAX_ENERGY:
-                    player_energy = min(PLAYER_MAX_ENERGY, player_energy + 1)
-                    # add_log("Energy +1 (Low HP)") # ログが煩雑になるためコメントアウト
+                    player_energy = min(PLAYER_MAX_ENERGY, player_energy + 2)
+                    # add_log("Energy +2 (Low HP)") # ログが煩雑になるためコメントアウト
         else:
             # HPが50%を超えたらタイマーリセット
             player_energy_regen_timer = 0
@@ -662,7 +671,8 @@ while running:
 
         # 敵の弾 描画
         for ball in enemy_bullets:
-            game_surface.blit(img_ball, ball[0])
+            #game_surface.blit(img_ball, ball[0])
+            game_surface.blit(ball[3], ball[0])
 
         # エフェクト 描画
         for effect in hit_effects:
